@@ -34,17 +34,24 @@ impl Solver {
         }
     }
 
-    fn train(&mut self, x_data: Vec<Vec<f64>>, epochs: usize) -> Vec<f64> {
+    fn train(&mut self, x_data: Vec<Vec<f64>>, epochs: usize, n_boundary: usize) -> Vec<f64> {
         let rows = x_data.len();
         let cols = x_data[0].len();
         let flat: Vec<f64> = x_data.into_iter().flatten().collect();
         let array = Array2::from_shape_vec((rows, cols), flat).unwrap();
         
-        self.solver.train(&array, epochs)
+        self.solver.train(&array, epochs, n_boundary)
     }
 
-    fn predict(&self, x: Vec<f64>) -> f64 {
+    fn predict(&mut self, x: Vec<f64>) -> f64 {
         let input = Array1::from_vec(x);
         self.solver.predict(&input)
+    }
+    
+    fn predict_batch(&mut self, x_data: Vec<Vec<f64>>) -> Vec<f64> {
+        x_data.into_iter().map(|x| {
+            let input = Array1::from_vec(x);
+            self.solver.predict(&input)
+        }).collect()
     }
 }
