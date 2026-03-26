@@ -1,0 +1,39 @@
+{
+  "name": "1D Heat Equation",
+  "description": "一维热传导方程示例",
+  "pde": "u_t - alpha * u_xx = 0",
+  "domain": {
+    "x": [0, 1],
+    "t": [0, 1]
+  },
+  "boundary_conditions": [
+    {
+      "type": "dirichlet",
+      "location": "x=0",
+      "value": "0"
+    },
+    {
+      "type": "dirichlet",
+      "location": "x=1",
+      "value": "0"
+    }
+  ],
+  "initial_condition": {
+    "location": "t=0",
+    "value": "sin(pi*x)"
+  },
+  "parameters": {
+    "alpha": 0.1
+  },
+  "network": {
+    "layers": [2, 32, 32, 32, 1],
+    "activation": "tanh"
+  },
+  "training": {
+    "epochs": 10000,
+    "learning_rate": 0.001,
+    "n_collocation": 10000,
+    "n_boundary": 200,
+    "n_initial": 200
+  }
+}

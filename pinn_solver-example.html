@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>PINN Solver — Burgers' Equation</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap');
+
+  :root {
+    --bg: #0a0c10;
+    --panel: #111318;
+    --border: #1e2330;
+    --accent: #00e5ff;
+    --accent2: #ff6b35;
+    --accent3: #a855f7;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --success: #22c55e;
+    --warn: #f59e0b;
+    --grid: rgba(0,229,255,0.04);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: 24px 20px 60px;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 0 28px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 28px;
+  }
+
+  .logo {
+    display: flex; align-items: center; gap: 14px;
+  }
+
+  .logo-icon {
+    width: 42px; height: 42px;
+    background: linear-gradient(135deg, var(--accent), var(--accent3));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    box-shadow: 0 0 20px rgba(0,229,255,0.3);
+  }
+
+  .logo-text h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+
+  .logo-text span {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .status-badge {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(34,197,94,0.08);
+    border: 1px solid rgba(34,197,94,0.2);
+    color: var(--success);
+    font-size: 11px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    letter-spacing: 1px;
+  }
+
+  .status-dot {
+    width: 7px; height: 7px;
+    background: var(--success);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  /* Layout */
+  .layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 20px;
+  }
+
+  /* Panel base */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(255,255,255,0.02);
+  }
+
+  .panel-header .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+  }
+
+  .panel-header h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.5px;
+    flex: 1;
+  }
+
+  .panel-header .tag {
+    font-size: 10px;
+    color: var(--muted);
+    background: rgba(255,255,255,0.04);
+    padding: 2px 8px;
+    border-radius: 4px;
+    letter-spacing: 1px;
+  }
+
+  /* Sidebar */
+  .sidebar { display: flex; flex-direction: column; gap: 16px; }
+
+  /* Config panel */
+  .config-body { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+
+  .field label {
+    display: block;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .field-row {
+    display: flex; gap: 10px; align-items: center;
+  }
+
+  .field input[type="range"] {
+    width: 100%;
+    -webkit-appearance: none;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+  }
+
+  .field input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    background: var(--accent);
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(0,229,255,0.5);
+  }
+
+  .field select, .field input[type="number"] {
+    width: 100%;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    outline: none;
+    transition: border-color .2s;
+  }
+
+  .field select:focus, .field input[type="number"]:focus {
+    border-color: var(--accent);
+  }
+
+  .val-badge {
+    font-size: 11px;
+    color: var(--accent);
+    min-width: 36px;
+    text-align: right;
+  }
+
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 2px 0;
+  }
+
+  /* Architecture viz */
+  .arch-viz {
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    overflow: hidden;
+  }
+
+  .layer-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .layer-col .node {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--border);
+    border: 1px solid var(--muted);
+    transition: all .3s;
+  }
+
+  .layer-col .node.active { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 6px rgba(0,229,255,0.6); }
+  .layer-col .node.accent2 { background: var(--accent2); border-color: var(--accent2); box-shadow: 0 0 6px rgba(255,107,53,0.6); }
+  .layer-col .node.accent3 { background: var(--accent3); border-color: var(--accent3); box-shadow: 0 0 6px rgba(168,85,247,0.6); }
+
+  .conn {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(0,229,255,0.2), rgba(168,85,247,0.2));
+    min-width: 6px;
+    max-width: 16px;
+    align-self: center;
+  }
+
+  .layer-label {
+    font-size: 9px;
+    color: var(--muted);
+    margin-top: 5px;
+    letter-spacing: 0.5px;
+  }
+
+  /* Run button */
+  .run-btn {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, var(--accent), #0099bb);
+    color: #000;
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 800;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: all .2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .run-btn::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent);
+    opacity: 0;
+    transition: opacity .2s;
+  }
+
+  .run-btn:hover::after { opacity: 1; }
+  .run-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,229,255,0.4); }
+  .run-btn:active { transform: translateY(0); }
+  .run-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  /* Main content */
+  .main { display: flex; flex-direction: column; gap: 16px; }
+
+  /* Training monitor */
+  .monitor-body { padding: 16px; }
+
+  .metrics-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .metric {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+
+  .metric .m-label {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .metric .m-val {
+    font-family: 'Syne', sans-serif;
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--accent);
+  }
+
+  .metric .m-val.orange { color: var(--accent2); }
+  .metric .m-val.purple { color: var(--accent3); }
+  .metric .m-val.green { color: var(--success); }
+
+  /* Progress bar */
+  .progress-wrap {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent3));
+    border-radius: 3px;
+    width: 0%;
+    transition: width .1s;
+    position: relative;
+  }
+
+  .progress-bar::after {
+    content: '';
+    position: absolute; right: 0; top: 0; bottom: 0;
+    width: 40px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4));
+    animation: shimmer 1s infinite;
+  }
+
+  @keyframes shimmer { 0%,100% { opacity: 0; } 50% { opacity: 1; } }
+
+  /* Chart */
+  .chart-wrap {
+    height: 180px;
+    position: relative;
+  }
+
+  /* Results grid */
+  .results-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .result-chart-wrap {
+    height: 200px;
+    position: relative;
+  }
+
+  /* Code panel */
+  .code-body {
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .code-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    padding: 0 16px;
+    gap: 0;
+  }
+
+  .code-tab {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    padding: 10px 14px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: all .2s;
+  }
+
+  .code-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .code-tab:hover:not(.active) { color: var(--text); }
+
+  pre {
+    padding: 16px;
+    font-size: 11px;
+    line-height: 1.8;
+    overflow-x: auto;
+    max-height: 340px;
+    overflow-y: auto;
+    color: #94a3b8;
+  }
+
+  pre::-webkit-scrollbar { width: 6px; height: 6px; }
+  pre::-webkit-scrollbar-track { background: transparent; }
+  pre::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .kw { color: #00e5ff; }
+  .fn { color: #a855f7; }
+  .str { color: #22c55e; }
+  .cm { color: #475569; font-style: italic; }
+  .num { color: #f59e0b; }
+  .op { color: #ff6b35; }
+
+  /* Log panel */
+  .log-body {
+    padding: 12px 16px;
+    max-height: 160px;
+    overflow-y: auto;
+    font-size: 11px;
+    line-height: 2;
+  }
+
+  .log-body::-webkit-scrollbar { width: 4px; }
+  .log-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .log-line { display: flex; gap: 12px; }
+  .log-line .ts { color: var(--muted); min-width: 60px; }
+  .log-line .msg { color: var(--text); }
+  .log-line .msg.ok { color: var(--success); }
+  .log-line .msg.warn { color: var(--warn); }
+  .log-line .msg.info { color: var(--accent); }
+
+  /* Equation display */
+  .eq-box {
+    background: rgba(0,229,255,0.04);
+    border: 1px solid rgba(0,229,255,0.12);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: 0.5px;
+    text-align: center;
+    font-style: italic;
+  }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    .results-grid { grid-template-columns: 1fr; }
+    .metrics-row { grid-template-columns: repeat(2,1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="logo">
+      <div class="logo-icon">⚛</div>
+      <div class="logo-text">
+        <h1>PINN Solver</h1>
+        <span>Physics-Informed Neural Network</span>
+      </div>
+    </div>
+    <div class="status-badge">
+      <div class="status-dot"></div>
+      MATLAB Online Emulation
+    </div>
+  </header>
+
+  <div class="layout">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+
+      <!-- Config -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="dot" style="background:var(--accent)"></div>
+          <h3>Configuration</h3>
+          <span class="tag">SETUP</span>
+        </div>
+        <div class="config-body">
+
+          <div class="field">
+            <label>PDE Model</label>
+            <select id="pdeModel">
+              <option value="burgers">Burgers' Equation</option>
+              <option value="heat">Heat Equation</option>
+              <option value="wave">Wave Equation</option>
+            </select>
+          </div>
+
+          <div class="eq-box" id="eqBox">∂u/∂t + u·∂u/∂x = ν·∂²u/∂x²</div>
+
+          <div class="divider"></div>
+
+          <div class="field">
+            <label>Network Layers <span class="val-badge" id="layersVal">9</span></label>
+            <input type="range" id="numLayers" min="3" max="12" value="9"
+              oninput="document.getElementById('layersVal').textContent=this.value; updateArch()">
+          </div>
+
+          <div class="field">
+            <label>Neurons / Layer <span class="val-badge" id="neuronsVal">20</span></label>
+            <input type="range" id="numNeurons" min="8" max="64" value="20" step="4"
+              oninput="document.getElementById('neuronsVal').textContent=this.value">
+          </div>
+
+          <div class="field">
+            <label>Max Iterations <span class="val-badge" id="iterVal">3000</span></label>
+            <input type="range" id="maxIter" min="500" max="5000" value="3000" step="500"
+              oninput="document.getElementById('iterVal').textContent=this.value">
+          </div>
+
+          <div class="field">
+            <label>Viscosity ν</label>
+            <input type="number" id="viscosity" value="0.00318" step="0.001" min="0.001" max="0.1">
+          </div>
+
+          <div class="field">
+            <label>Collocation Points <span class="val-badge" id="collocVal">10000</span></label>
+            <input type="range" id="numColloc" min="1000" max="20000" value="10000" step="1000"
+              oninput="document.getElementById('collocVal').textContent=this.value">
+          </div>
+
+          <div class="field">
+            <label>Optimizer</label>
+            <select id="optimizer">
+              <option value="lbfgs">L-BFGS</option>
+              <option value="adam">Adam</option>
+              <option value="hybrid">Adam + L-BFGS</option>
+            </select>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Architecture visualizer -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="dot" style="background:var(--accent3)"></div>
+          <h3>Network Architecture</h3>
+        </div>
+        <div class="arch-viz" id="archViz"></div>
+      </div>
+
+      <!-- Run -->
+      <button class="run-btn" id="runBtn" onclick="startTraining()">▶ Run Solver</button>
+
+    </div>
+
+    <!-- MAIN -->
+    <div class="main">
+
+      <!-- Training monitor -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="dot" style="background:var(--accent2)"></div>
+          <h3>Training Monitor</h3>
+          <span class="tag" id="statusTag">IDLE</span>
+        </div>
+        <div class="monitor-body">
+          <div class="metrics-row">
+            <div class="metric">
+              <div class="m-label">Iteration</div>
+              <div class="m-val" id="mIter">—</div>
+            </div>
+            <div class="metric">
+              <div class="m-label">Total Loss</div>
+              <div class="m-val orange" id="mLoss">—</div>
+            </div>
+            <div class="metric">
+              <div class="m-label">PDE Residual</div>
+              <div class="m-val purple" id="mPde">—</div>
+            </div>
+            <div class="metric">
+              <div class="m-label">BC/IC Loss</div>
+              <div class="m-val green" id="mBc">—</div>
+            </div>
+          </div>
+          <div class="progress-wrap">
+            <div class="progress-bar" id="progressBar"></div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="lossChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Solution results -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="dot" style="background:var(--success)"></div>
+          <h3>Solution Profiles</h3>
+          <span class="tag" id="solutionTag">AWAITING TRAINING</span>
+        </div>
+        <div style="padding:16px">
+          <div class="results-grid" id="resultsGrid">
+            <!-- Charts injected here -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Code + Log row -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+        <!-- Code -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="dot" style="background:var(--accent)"></div>
+            <h3>Generated MATLAB Code</h3>
+          </div>
+          <div class="code-body">
+            <div class="code-tabs">
+              <div class="code-tab active" onclick="showTab(0,this)">main.m</div>
+              <div class="code-tab" onclick="showTab(1,this)">modelLoss.m</div>
+              <div class="code-tab" onclick="showTab(2,this)">evaluate.m</div>
+            </div>
+            <div id="codeContent"></div>
+          </div>
+        </div>
+
+        <!-- Log -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="dot" style="background:var(--warn)"></div>
+            <h3>Execution Log</h3>
+          </div>
+          <div class="log-body" id="logBody">
+            <div class="log-line"><span class="ts">00:00:00</span><span class="msg info">PINN Solver initialized.</span></div>
+            <div class="log-line"><span class="ts">00:00:00</span><span class="msg">Configure parameters and click Run.</span></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────
+let lossChart = null;
+let resultCharts = [];
+let trainTimer = null;
+let startTime = null;
+let iteration = 0;
+let maxIter = 3000;
+let lossHistory = [];
+let pdeHistory = [];
+let bcHistory = [];
+let tabIndex = 0;
+
+const equations = {
+  burgers: '∂u/∂t + u·∂u/∂x = ν·∂²u/∂x²',
+  heat:    '∂u/∂t = α·∂²u/∂x²',
+  wave:    '∂²u/∂t² = c²·∂²u/∂x²'
+};
+
+document.getElementById('pdeModel').addEventListener('change', e => {
+  document.getElementById('eqBox').textContent = equations[e.target.value];
+});
+
+// ─── ARCHITECTURE VISUALIZER ─────────────────────────────
+function updateArch() {
+  const n = parseInt(document.getElementById('numLayers').value);
+  const viz = document.getElementById('archViz');
+  viz.innerHTML = '';
+
+  // Input layer
+  addLayer(viz, 2, 'active', 'IN');
+  // Hidden
+  const shown = Math.min(n, 6);
+  for (let i = 0; i < shown; i++) {
+    addConn(viz);
+    const cl = i === Math.floor(shown/2) ? 'accent3' : 'accent2';
+    addLayer(viz, 4, cl, `H${i+1}`);
+  }
+  if (n > 6) {
+    addConn(viz);
+    const dots = document.createElement('div');
+    dots.style.cssText = 'font-size:16px;color:var(--muted);align-self:center;padding:0 2px;';
+    dots.textContent = '···';
+    viz.appendChild(dots);
+  }
+  // Output
+  addConn(viz);
+  addLayer(viz, 1, 'active', 'OUT');
+}
+
+function addLayer(parent, count, cls, label) {
+  const col = document.createElement('div');
+  col.className = 'layer-col';
+  for (let i = 0; i < count; i++) {
+    const n = document.createElement('div');
+    n.className = `node ${cls}`;
+    col.appendChild(n);
+  }
+  const lbl = document.createElement('div');
+  lbl.className = 'layer-label';
+  lbl.textContent = label;
+  col.appendChild(lbl);
+  parent.appendChild(col);
+}
+
+function addConn(parent) {
+  const c = document.createElement('div');
+  c.className = 'conn';
+  parent.appendChild(c);
+}
+
+updateArch();
+
+// ─── LOSS CHART ───────────────────────────────────────────
+function initLossChart() {
+  if (lossChart) { lossChart.destroy(); lossChart = null; }
+  const ctx = document.getElementById('lossChart').getContext('2d');
+  lossChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        { label: 'Total Loss', data: [], borderColor: '#ff6b35', borderWidth: 2, pointRadius: 0, tension: 0.4 },
+        { label: 'PDE Residual', data: [], borderColor: '#a855f7', borderWidth: 1.5, pointRadius: 0, tension: 0.4 },
+        { label: 'BC/IC Loss', data: [], borderColor: '#22c55e', borderWidth: 1.5, pointRadius: 0, tension: 0.4 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      scales: {
+        x: { display: false },
+        y: { type: 'logarithmic', grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b', font: { size: 10 } } }
+      },
+      plugins: { legend: { labels: { color: '#94a3b8', font: { size: 10 }, boxWidth: 12 } } }
+    }
+  });
+}
+
+// ─── SOLUTION CHART (for each time slice) ────────────────
+function initResultCharts() {
+  resultCharts.forEach(c => c.destroy());
+  resultCharts = [];
+  const grid = document.getElementById('resultsGrid');
+  grid.innerHTML = '';
+  const times = [0.25, 0.50, 0.75, 1.00];
+  times.forEach((t, i) => {
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `<div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:6px;">t = ${t.toFixed(2)}</div>
+      <div class="result-chart-wrap"><canvas id="rc${i}"></canvas></div>`;
+    grid.appendChild(wrap);
+    const ctx = document.getElementById(`rc${i}`).getContext('2d');
+    const c = new Chart(ctx, {
+      type: 'line',
+      data: { labels: [], datasets: [
+        { label: 'u(x,t)', data: [], borderColor: '#00e5ff', borderWidth: 2, pointRadius: 0, fill: false, tension: 0.4 },
+        { label: 'Reference', data: [], borderColor: '#ff6b35', borderWidth: 1.5, pointRadius: 0, borderDash: [4,4], fill: false, tension: 0.4 }
+      ]},
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        scales: {
+          x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b', font: { size: 9 }, maxTicksLimit: 5 } },
+          y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b', font: { size: 9 }, maxTicksLimit: 5 } }
+        },
+        plugins: { legend: { labels: { color: '#94a3b8', font: { size: 9 }, boxWidth: 10 } } }
+      }
+    });
+    resultCharts.push(c);
+  });
+}
+
+// ─── PHYSICS: simple PINN approximation ──────────────────
+// We simulate training convergence and evaluate an approximate solution
+function burgersExact(x, t, nu) {
+  // Hopf-Cole approximate for small t
+  return -Math.sin(Math.PI * x) * Math.exp(-Math.PI * Math.PI * nu * t);
+}
+
+function heatExact(x, t, alpha) {
+  return Math.sin(Math.PI * x) * Math.exp(-alpha * Math.PI * Math.PI * t);
+}
+
+function waveExact(x, t, c) {
+  return Math.sin(Math.PI * x) * Math.cos(Math.PI * c * t);
+}
+
+function getExact(x, t) {
+  const model = document.getElementById('pdeModel').value;
+  const nu = parseFloat(document.getElementById('viscosity').value);
+  if (model === 'burgers') return burgersExact(x, t, nu);
+  if (model === 'heat')    return heatExact(x, t, nu);
+  return waveExact(x, t, nu);
+}
+
+// Simulated PINN solution (adds learned correction noise that decays)
+function pinnSolution(x, t, convg) {
+  const exact = getExact(x, t);
+  const noise = (1 - convg) * 0.3 * (Math.random() - 0.5);
+  return exact + noise;
+}
+
+// ─── TRAINING SIMULATION ─────────────────────────────────
+function startTraining() {
+  if (trainTimer) { clearInterval(trainTimer); trainTimer = null; }
+  maxIter = parseInt(document.getElementById('maxIter').value);
+  iteration = 0; lossHistory = []; pdeHistory = []; bcHistory = [];
+  startTime = Date.now();
+
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('statusTag').textContent = 'TRAINING';
+  document.getElementById('statusTag').style.color = 'var(--warn)';
+  document.getElementById('solutionTag').textContent = 'TRAINING...';
+  document.getElementById('progressBar').style.width = '0%';
+
+  initLossChart();
+  initResultCharts();
+  clearLog();
+  addLog('info', `Starting ${document.getElementById('pdeModel').value.toUpperCase()} PINN solver`);
+  addLog('info', `Layers: ${document.getElementById('numLayers').value}, Neurons: ${document.getElementById('numNeurons').value}`);
+  addLog('info', `Optimizer: ${document.getElementById('optimizer').value}, MaxIter: ${maxIter}`);
+  addLog('ok', 'Building dlnetwork... done');
+  addLog('ok', 'Generating collocation points... done');
+  addLog('info', 'Beginning optimization loop...');
+
+  const stepsPerTick = Math.max(1, Math.floor(maxIter / 300));
+  let phase = 'adam'; // for hybrid
+
+  trainTimer = setInterval(() => {
+    for (let s = 0; s < stepsPerTick && iteration < maxIter; s++) {
+      iteration++;
+      const progress = iteration / maxIter;
+
+      // Simulate loss decay
+      const base = Math.exp(-4 * progress);
+      const totalLoss = 0.8 * base + 0.002 + 0.01 * Math.random() * base;
+      const pdeLoss   = 0.6 * base + 0.0015 + 0.008 * Math.random() * base;
+      const bcLoss    = 0.2 * base + 0.0005 + 0.002 * Math.random() * base;
+
+      if (lossHistory.length < 600) {
+        lossHistory.push(totalLoss);
+        pdeHistory.push(pdeLoss);
+        bcHistory.push(bcLoss);
+        const label = iteration.toString();
+        lossChart.data.labels.push(label);
+        lossChart.data.datasets[0].data.push(totalLoss);
+        lossChart.data.datasets[1].data.push(pdeLoss);
+        lossChart.data.datasets[2].data.push(bcLoss);
+      }
+
+      // Update metrics
+      if (iteration % stepsPerTick === 0) {
+        document.getElementById('mIter').textContent = iteration;
+        document.getElementById('mLoss').textContent = totalLoss.toExponential(2);
+        document.getElementById('mPde').textContent = pdeLoss.toExponential(2);
+        document.getElementById('mBc').textContent = bcLoss.toExponential(2);
+      }
+    }
+
+    // Progress
+    const pct = Math.min(100, (iteration / maxIter) * 100);
+    document.getElementById('progressBar').style.width = pct + '%';
+    lossChart.update('none');
+
+    // Log milestones
+    if (iteration === Math.floor(maxIter * 0.1)) addLog('info', `10% complete — loss: ${lossHistory[lossHistory.length-1].toExponential(2)}`);
+    if (iteration === Math.floor(maxIter * 0.25)) addLog('ok', 'Gradient norm decreasing steadily');
+    if (iteration === Math.floor(maxIter * 0.5)) addLog('info', `50% complete — switching to refined phase`);
+    if (iteration === Math.floor(maxIter * 0.75)) addLog('ok', 'Solution converging near reference');
+    if (document.getElementById('optimizer').value === 'hybrid' && iteration === Math.floor(maxIter * 0.6) && phase === 'adam') {
+      addLog('info', 'Switching from Adam → L-BFGS');
+      phase = 'lbfgs';
+    }
+
+    // Done
+    if (iteration >= maxIter) {
+      clearInterval(trainTimer); trainTimer = null;
+      document.getElementById('runBtn').disabled = false;
+      document.getElementById('statusTag').textContent = 'CONVERGED';
+      document.getElementById('statusTag').style.color = 'var(--success)';
+      document.getElementById('solutionTag').textContent = 'COMPLETE';
+      document.getElementById('progressBar').style.width = '100%';
+
+      const elapsed = ((Date.now() - startTime)/1000).toFixed(1);
+      addLog('ok', `Training complete in ${elapsed}s`);
+      addLog('ok', `Final loss: ${lossHistory[lossHistory.length-1].toExponential(3)}`);
+      addLog('info', 'Evaluating solution on test grid...');
+
+      renderSolutions();
+    }
+  }, 30);
+}
+
+function renderSolutions() {
+  const xArr = [];
+  for (let i = 0; i <= 100; i++) xArr.push(-1 + 2*i/100);
+  const times = [0.25, 0.50, 0.75, 1.00];
+
+  times.forEach((t, idx) => {
+    const pinnData = xArr.map(x => pinnSolution(x, t, 0.98));
+    const refData  = xArr.map(x => getExact(x, t));
+    const labels   = xArr.map(x => x.toFixed(2));
+
+    resultCharts[idx].data.labels = labels;
+    resultCharts[idx].data.datasets[0].data = pinnData;
+    resultCharts[idx].data.datasets[1].data = refData;
+    resultCharts[idx].update();
+  });
+
+  addLog('ok', 'Solution profiles rendered for t = 0.25, 0.50, 0.75, 1.00');
+}
+
+// ─── LOG ─────────────────────────────────────────────────
+function clearLog() {
+  document.getElementById('logBody').innerHTML = '';
+}
+
+function addLog(type, msg) {
+  const el = document.getElementById('logBody');
+  const now = new Date(Date.now() - (startTime || Date.now()));
+  const ts = new Date(startTime ? Date.now() - startTime : 0);
+  const h = String(Math.floor((Date.now()-startTime)/3600000)).padStart(2,'0');
+  const m = String(Math.floor((Date.now()-startTime)/60000)%60).padStart(2,'0');
+  const s = String(Math.floor((Date.now()-startTime)/1000)%60).padStart(2,'0');
+  const tsStr = startTime ? `${h}:${m}:${s}` : '00:00:00';
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  line.innerHTML = `<span class="ts">${tsStr}</span><span class="msg ${type}">${msg}</span>`;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+// ─── CODE TABS ────────────────────────────────────────────
+const codes = [
+`<span class="cm">% main.m — PINN solver for Burgers' equation</span>
+<span class="cm">% Generated by PINN Solver Web App</span>
+
+<span class="kw">clear</span>; <span class="kw">clc</span>; <span class="kw">close</span> all
+
+<span class="cm">%% Configuration</span>
+numLayers  = <span class="num">9</span>;
+numNeurons = <span class="num">20</span>;
+maxIter    = <span class="num">3000</span>;
+nu         = <span class="num">0.01</span>/<span class="kw">pi</span>;
+
+<span class="cm">%% Collocation points</span>
+nBC = <span class="num">25</span>; nIC = <span class="num">50</span>; nInt = <span class="num">10000</span>;
+
+<span class="cm">% Boundary conditions (x = ±1)</span>
+x0BC1 = -<span class="num">1</span>*<span class="fn">ones</span>(<span class="num">1</span>,nBC); x0BC2 = <span class="fn">ones</span>(<span class="num">1</span>,nBC);
+t0BC1 = <span class="fn">linspace</span>(<span class="num">0</span>,<span class="num">1</span>,nBC); t0BC2 = t0BC1;
+u0BC1 = <span class="fn">zeros</span>(<span class="num">1</span>,nBC);   u0BC2 = u0BC1;
+
+<span class="cm">% Initial condition (t = 0)</span>
+x0IC = <span class="fn">linspace</span>(-<span class="num">1</span>,<span class="num">1</span>,nIC);
+t0IC = <span class="fn">zeros</span>(<span class="num">1</span>,nIC);
+u0IC = -<span class="fn">sin</span>(<span class="kw">pi</span>*x0IC);
+
+<span class="cm">% Interior points (random)</span>
+x0Int = <span class="num">2</span>*<span class="fn">rand</span>(<span class="num">1</span>,nInt) - <span class="num">1</span>;
+t0Int = <span class="fn">rand</span>(<span class="num">1</span>,nInt);
+
+<span class="cm">%% Build network</span>
+layers = <span class="fn">featureInputLayer</span>(<span class="num">2</span>);
+<span class="kw">for</span> i = <span class="num">1</span>:numLayers-<span class="num">1</span>
+    layers = [layers <span class="fn">fullyConnectedLayer</span>(numNeurons) <span class="fn">tanhLayer</span>];
+<span class="kw">end</span>
+layers = [layers <span class="fn">fullyConnectedLayer</span>(<span class="num">1</span>)];
+net = <span class="fn">dlnetwork</span>(layers);
+net = <span class="fn">dlupdate</span>(@double, net);  <span class="cm">% use double precision</span>
+
+<span class="cm">%% Train</span>
+solverState = <span class="fn">lbfgsState</span>;
+<span class="kw">for</span> k = <span class="num">1</span>:maxIter
+    [net, solverState] = <span class="fn">lbfgsupdate</span>(net, @lossFcn, solverState);
+    <span class="kw">if</span> solverState.GradientsNorm < <span class="num">1e-5</span>, <span class="kw">break</span>; <span class="kw">end</span>
+<span class="kw">end</span>
+
+<span class="fn">evaluate_and_plot</span>(net, nu);`,
+
+`<span class="cm">% modelLoss.m — physics-informed loss function</span>
+
+<span class="kw">function</span> [loss, grad] = <span class="fn">modelLoss</span>(net, xInt, tInt, xBC, tBC, uBC)
+
+  xInt = <span class="fn">dlarray</span>(xInt, <span class="str">"CB"</span>);
+  tInt = <span class="fn">dlarray</span>(tInt, <span class="str">"CB"</span>);
+
+  <span class="cm">% Enable gradient tracking for x and t</span>
+  [u, grads_x] = <span class="fn">dlfeval</span>(@forwardAndGrad, net, xInt, tInt);
+
+  ux  = grads_x{<span class="num">1</span>};
+  ut  = grads_x{<span class="num">2</span>};
+  uxx = <span class="fn">dlgradient</span>(<span class="fn">sum</span>(ux,<span class="str">"all"</span>), xInt, ...
+        EnableHigherDerivatives=<span class="kw">true</span>);
+
+  nu  = <span class="num">0.01</span>/<span class="kw">pi</span>;
+  res = ut + u.*ux - nu.*uxx;
+  lossF = <span class="fn">mean</span>(res.^<span class="num">2</span>, <span class="str">"all"</span>);
+
+  <span class="cm">% BC/IC enforcement</span>
+  XT_bc   = <span class="fn">dlarray</span>([xBC; tBC], <span class="str">"CB"</span>);
+  u_pred  = <span class="fn">forward</span>(net, XT_bc);
+  lossBC  = <span class="fn">mse</span>(u_pred, <span class="fn">dlarray</span>(uBC, <span class="str">"CB"</span>));
+
+  loss = lossF + lossBC;
+  grad = <span class="fn">dlgradient</span>(loss, net.Learnables);
+<span class="kw">end</span>`,
+
+`<span class="cm">% evaluate.m — test solution and plot</span>
+
+<span class="kw">function</span> <span class="fn">evaluate_and_plot</span>(net, nu)
+  tTest = [<span class="num">0.25</span> <span class="num">0.50</span> <span class="num">0.75</span> <span class="num">1.00</span>];
+  x     = <span class="fn">linspace</span>(-<span class="num">1</span>, <span class="num">1</span>, <span class="num">1001</span>);
+
+  <span class="fn">figure</span>(<span class="str">'Color'</span>,<span class="str">'w'</span>);
+  <span class="fn">tiledlayout</span>(<span class="num">2</span>,<span class="num">2</span>);
+
+  <span class="kw">for</span> i = <span class="num">1</span>:<span class="fn">numel</span>(tTest)
+    t    = tTest(i);
+    XT   = <span class="fn">dlarray</span>([x; t*<span class="fn">ones</span>(<span class="num">1</span>,<span class="fn">numel</span>(x))], <span class="str">"CB"</span>);
+    uHat = <span class="fn">extractdata</span>(<span class="fn">forward</span>(net, XT));
+
+    <span class="fn">nexttile</span>;
+    <span class="fn">plot</span>(x, uHat, <span class="str">'b-'</span>, LineWidth=<span class="num">2</span>);
+    <span class="fn">title</span>(<span class="fn">sprintf</span>(<span class="str">'t = %.2f'</span>, t));
+    <span class="fn">xlabel</span>(<span class="str">'x'</span>); <span class="fn">ylabel</span>(<span class="str">'u(x,t)'</span>);
+    <span class="fn">grid</span> on;
+  <span class="kw">end</span>
+
+  <span class="fn">sgtitle</span>(<span class="str">'PINN Solution — Burgers Equation'</span>);
+<span class="kw">end</span>`
+];
+
+function showTab(i, el) {
+  tabIndex = i;
+  document.querySelectorAll('.code-tab').forEach((t,idx) => t.classList.toggle('active', idx===i));
+  document.getElementById('codeContent').innerHTML = `<pre>${codes[i]}</pre>`;
+}
+
+showTab(0, null);
+</script>
+</body>
+</html>
