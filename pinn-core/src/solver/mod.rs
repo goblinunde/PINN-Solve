@@ -81,77 +81,60 @@ impl PDESolver {
         u_boundary: &Array1<f64>,
         lambda_boundary: f64,
     ) -> f64 {
-        // 计算总损失
-        let pde_loss = self.compute_pde_residual(x_collocation);
-        let boundary_loss = self.compute_boundary_loss(x_boundary, u_boundary);
-        let total_loss = pde_loss + lambda_boundary * boundary_loss;
-        
-        // 反向传播（简化版：使用数值梯度）
-        self.backward_numerical(x_collocation, x_boundary, u_boundary, lambda_boundary);
-        
+        // 清零梯度
+        self.network.zero_grads();
+
+        // 1. 边界损失反向传播（解析梯度）
+        let mut boundary_loss = 0.0;
+        for i in 0..x_boundary.nrows() {
+            let point = x_boundary.row(i).to_owned();
+            let u_pred = self.network.forward(&point)[0];
+            let diff = u_pred - u_boundary[i];
+            boundary_loss += diff * diff;
+            // dL/du_pred = 2 * diff
+            let grad = Array1::from_vec(vec![2.0 * diff * lambda_boundary / x_boundary.nrows() as f64]);
+            self.network.backward(&grad);
+        }
+        boundary_loss /= x_boundary.nrows() as f64;
+
+        // 2. PDE残差反向传播（对权重用数值梯度，但只在配点上）
+        let pde_loss = self.backward_pde(x_collocation);
+
         // 优化器更新
         self.optimizer.step(&mut self.network);
-        
-        total_loss
+
+        pde_loss + lambda_boundary * boundary_loss
     }
 
-    /// 数值梯度反向传播
-    fn backward_numerical(
-        &mut self,
-        x_collocation: &Array2<f64>,
-        x_boundary: &Array2<f64>,
-        u_boundary: &Array1<f64>,
-        lambda_boundary: f64,
-    ) {
-        let delta = 1e-5;
-        
-        // 对每一层的权重和偏置计算梯度
+    /// PDE残差的数值梯度（只对权重，配点数量少时可接受）
+    fn backward_pde(&mut self, x_collocation: &Array2<f64>) -> f64 {
+        let delta = 1e-4;
+        let base_loss = self.compute_pde_residual(x_collocation);
+
         for layer_idx in 0..self.network.get_layers().len() {
             let (rows, cols) = self.network.get_layers()[layer_idx].weights.dim();
-            
-            // 权重梯度
             for i in 0..rows {
                 for j in 0..cols {
-                    // 保存原值
-                    let original = self.network.get_layers_mut()[layer_idx].weights[[i, j]];
-                    
-                    // 计算 f(w + delta)
-                    self.network.get_layers_mut()[layer_idx].weights[[i, j]] = original + delta;
-                    let loss_plus = self.compute_pde_residual(x_collocation)
-                        + lambda_boundary * self.compute_boundary_loss(x_boundary, u_boundary);
-                    
-                    // 计算 f(w - delta)
-                    self.network.get_layers_mut()[layer_idx].weights[[i, j]] = original - delta;
-                    let loss_minus = self.compute_pde_residual(x_collocation)
-                        + lambda_boundary * self.compute_boundary_loss(x_boundary, u_boundary);
-                    
-                    // 恢复原值
-                    self.network.get_layers_mut()[layer_idx].weights[[i, j]] = original;
-                    
-                    // 计算梯度
-                    let grad = (loss_plus - loss_minus) / (2.0 * delta);
-                    self.network.get_layers_mut()[layer_idx].weights_grad[[i, j]] = grad;
+                    let orig = self.network.get_layers_mut()[layer_idx].weights[[i, j]];
+                    self.network.get_layers_mut()[layer_idx].weights[[i, j]] = orig + delta;
+                    let loss_plus = self.compute_pde_residual(x_collocation);
+                    self.network.get_layers_mut()[layer_idx].weights[[i, j]] = orig;
+                    let grad = (loss_plus - base_loss) / delta;
+                    self.network.get_layers_mut()[layer_idx].weights_grad[[i, j]] += grad;
                 }
             }
-            
-            // 偏置梯度
-            for j in 0..self.network.get_layers()[layer_idx].bias.len() {
-                let original = self.network.get_layers_mut()[layer_idx].bias[j];
-                
-                self.network.get_layers_mut()[layer_idx].bias[j] = original + delta;
-                let loss_plus = self.compute_pde_residual(x_collocation)
-                    + lambda_boundary * self.compute_boundary_loss(x_boundary, u_boundary);
-                
-                self.network.get_layers_mut()[layer_idx].bias[j] = original - delta;
-                let loss_minus = self.compute_pde_residual(x_collocation)
-                    + lambda_boundary * self.compute_boundary_loss(x_boundary, u_boundary);
-                
-                self.network.get_layers_mut()[layer_idx].bias[j] = original;
-                
-                let grad = (loss_plus - loss_minus) / (2.0 * delta);
-                self.network.get_layers_mut()[layer_idx].bias_grad[j] = grad;
+            let bias_len = self.network.get_layers()[layer_idx].bias.len();
+            for j in 0..bias_len {
+                let orig = self.network.get_layers_mut()[layer_idx].bias[j];
+                self.network.get_layers_mut()[layer_idx].bias[j] = orig + delta;
+                let loss_plus = self.compute_pde_residual(x_collocation);
+                self.network.get_layers_mut()[layer_idx].bias[j] = orig;
+                let grad = (loss_plus - base_loss) / delta;
+                self.network.get_layers_mut()[layer_idx].bias_grad[j] += grad;
             }
         }
+
+        base_loss
     }
 
     /// 完整训练流程

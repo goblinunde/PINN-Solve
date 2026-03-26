@@ -133,6 +133,13 @@ impl Network {
         }
     }
 
+    pub fn zero_grads(&mut self) {
+        for layer in &mut self.layers {
+            layer.weights_grad.fill(0.0);
+            layer.bias_grad.fill(0.0);
+        }
+    }
+
     pub fn get_layers(&self) -> &Vec<Layer> {
         &self.layers
     }
