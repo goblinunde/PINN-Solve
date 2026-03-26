@@ -1,6 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from api import problems_router, training_router, results_router
+from api import problems_router, results_router, system_router, training_router
+from data.models import init_db
+from tasks.celery_app import ensure_runtime_dirs
+
+init_db()
+ensure_runtime_dirs()
 
 app = FastAPI(title="PINN-Solve API", version="0.1.0")
 
@@ -15,6 +20,7 @@ app.add_middleware(
 app.include_router(problems_router)
 app.include_router(training_router)
 app.include_router(results_router)
+app.include_router(system_router)
 
 @app.get("/")
 async def root():

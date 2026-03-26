@@ -40,6 +40,8 @@ Thumbs.db
 # Logs
 *.log
 logs/
+backend/.celery/
+.run/
 
 # Environment
 .env

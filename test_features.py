@@ -5,6 +5,7 @@
 
 import sys
 import os
+import time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'pinn-core/target/release'))
 
 import numpy as np
@@ -120,10 +121,23 @@ def test_api():
             task_id = response.json()["task_id"]
             print(f"✅ 训练任务创建成功: {task_id}")
             
-            # 查询状态
-            response = requests.get(f"http://localhost:8000/api/train/{task_id}/status")
-            status = response.json()
-            print(f"✅ 状态查询成功: loss = {status['loss']:.6f}")
+            # 轮询状态
+            status = None
+            for _ in range(20):
+                response = requests.get(f"http://localhost:8000/api/train/{task_id}/status", timeout=5)
+                status = response.json()
+                print(f"   当前状态: {status['status']}, progress = {status['progress']:.0%}")
+
+                if status["status"] in {"completed", "failed", "cancelled"}:
+                    break
+
+                time.sleep(1)
+
+            if not status or status["status"] != "completed":
+                print(f"❌ 任务未成功完成: {status['status'] if status else 'unknown'}")
+                return False
+
+            print(f"✅ 状态查询成功: loss = {status['current_loss']:.6f}")
             
             # 获取解
             response = requests.get(f"http://localhost:8000/api/results/{task_id}")
@@ -136,7 +150,9 @@ def test_api():
             return False
             
     except requests.exceptions.ConnectionError:
-        print("⚠️  无法连接到后端服务，请先启动: cd backend && python main.py")
+        print("⚠️  无法连接到后端服务，请先启动 API 和 Worker:")
+        print("   cd backend && ./start-worker.sh")
+        print("   cd backend && python main.py")
         return False
     except Exception as e:
         print(f"❌ 错误: {e}")

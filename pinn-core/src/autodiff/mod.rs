@@ -1,5 +1,5 @@
 // 自动微分模块
-use ndarray::{Array1, Array2};
+use ndarray::Array1;
 
 /// 计算数值梯度（用于验证）
 pub fn numerical_gradient<F>(f: F, x: &Array1<f64>, epsilon: f64) -> Array1<f64>
