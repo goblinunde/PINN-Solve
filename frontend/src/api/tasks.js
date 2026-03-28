@@ -57,6 +57,51 @@ export const fetchSystemOverview = async () => {
   return response.data
 }
 
+export const listDatabaseProfiles = async () => {
+  const response = await axios.get('/api/db/profiles')
+  return response.data
+}
+
+export const createDatabaseProfile = async (payload) => {
+  const response = await axios.post('/api/db/profiles', payload)
+  return response.data
+}
+
+export const testDatabaseProfile = async (profileId) => {
+  const response = await axios.post(`/api/db/profiles/${profileId}/test`)
+  return response.data
+}
+
+export const fetchDatabaseSchema = async (profileId) => {
+  const response = await axios.get(`/api/db/profiles/${profileId}/schema`)
+  return response.data
+}
+
+export const createDatabaseSchema = async (profileId, payload) => {
+  const response = await axios.post(`/api/db/profiles/${profileId}/databases`, payload)
+  return response.data
+}
+
+export const createDatabaseTable = async (profileId, payload) => {
+  const response = await axios.post(`/api/db/profiles/${profileId}/tables`, payload)
+  return response.data
+}
+
+export const fetchTablePreview = async (profileId, databaseName, tableName) => {
+  const response = await axios.get(`/api/db/profiles/${profileId}/tables/${databaseName}/${tableName}`)
+  return response.data
+}
+
+export const insertTableRows = async (profileId, payload) => {
+  const response = await axios.post(`/api/db/profiles/${profileId}/rows`, payload)
+  return response.data
+}
+
+export const importTableCsv = async (profileId, payload) => {
+  const response = await axios.post(`/api/db/profiles/${profileId}/import-csv`, payload)
+  return response.data
+}
+
 export const getApiErrorMessage = (error) => {
   return error.response?.data?.detail || error.message || 'Request failed'
 }

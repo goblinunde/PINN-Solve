@@ -1,4 +1,5 @@
 import math
+import os
 from dataclasses import dataclass
 
 import numpy as np
@@ -319,7 +320,13 @@ def train_with_torch(config: dict, progress_callback, cancel_callback):
     network_config = solver_config.get("network") or {}
     pde_config = solver_config.get("pde") or {}
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    requested_device = (os.getenv("PINNSOLVER_TORCH_DEVICE") or "auto").lower()
+    if requested_device == "cpu":
+        device = torch.device("cpu")
+    elif requested_device == "cuda" and torch.cuda.is_available():
+        device = torch.device("cuda")
+    else:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model, architecture = build_model(network_config)
     model.to(device)
     model.train()

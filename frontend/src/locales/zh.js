@@ -3,7 +3,8 @@ export default {
     config: '问题配置',
     monitor: '训练监控',
     results: '求解结果',
-    history: '任务列表'
+    history: '任务列表',
+    database: '数据库工作台'
   },
   config: {
     title: 'PINN 建模工作台',

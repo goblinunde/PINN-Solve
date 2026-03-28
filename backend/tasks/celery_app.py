@@ -9,7 +9,7 @@ import numpy as np
 from celery import Celery
 from celery.signals import worker_ready, worker_shutdown
 
-from data.models import init_db
+from data.models import CELERY_RESULT_BACKEND_URL, init_db
 from services.training_tasks import get_task_detail, is_cancel_requested, now_utc, update_task
 from services.system_status import update_worker_state
 
@@ -18,7 +18,6 @@ RUNTIME_DIR = BASE_DIR / ".celery"
 QUEUE_DIR = RUNTIME_DIR / "queue"
 PROCESSED_DIR = RUNTIME_DIR / "processed"
 CONTROL_DIR = RUNTIME_DIR / "control"
-DB_PATH = BASE_DIR / "pinn_solve.db"
 WORKER_NAME = None
 HEARTBEAT_STOP = threading.Event()
 HEARTBEAT_THREAD = None
@@ -35,7 +34,7 @@ init_db()
 celery_app = Celery(
     "pinn_tasks",
     broker="filesystem://",
-    backend=f"db+sqlite:///{DB_PATH}",
+    backend=CELERY_RESULT_BACKEND_URL,
 )
 celery_app.conf.update(
     task_serializer="json",

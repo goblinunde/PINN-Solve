@@ -3,7 +3,8 @@ export default {
     config: 'Configuration',
     monitor: 'Monitor',
     results: 'Results',
-    history: 'Tasks'
+    history: 'Tasks',
+    database: 'Database'
   },
   config: {
     title: 'PINN Modeling Workbench',

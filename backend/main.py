@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from api import problems_router, results_router, system_router, training_router
-from data.models import init_db
+from api import database_router, datasets_router, problems_router, results_router, system_router, training_router
+from data.models import DATABASE_URL, init_db
+from services.runtime_env import torch_runtime_summary
 from tasks.celery_app import ensure_runtime_dirs
 
 init_db()
@@ -21,6 +22,8 @@ app.include_router(problems_router)
 app.include_router(training_router)
 app.include_router(results_router)
 app.include_router(system_router)
+app.include_router(datasets_router)
+app.include_router(database_router)
 
 @app.get("/")
 async def root():
@@ -28,7 +31,11 @@ async def root():
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "database_backend": DATABASE_URL.split(":", 1)[0],
+        "torch_runtime": torch_runtime_summary(),
+    }
 
 if __name__ == "__main__":
     import uvicorn

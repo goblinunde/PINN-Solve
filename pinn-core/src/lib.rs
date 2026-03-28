@@ -12,5 +12,7 @@ fn pinn_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<bindings::Network>()?;
     m.add_class::<bindings::Solver>()?;
     m.add_function(wrap_pyfunction!(bindings::create_solver_from_config_json, m)?)?;
+    m.add_function(wrap_pyfunction!(bindings::encrypt_secret, m)?)?;
+    m.add_function(wrap_pyfunction!(bindings::decrypt_secret, m)?)?;
     Ok(())
 }

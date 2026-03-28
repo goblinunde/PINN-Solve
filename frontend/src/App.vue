@@ -28,6 +28,10 @@
           <span class="icon">04</span>
           {{ t('nav.history') }}
         </router-link>
+        <router-link to="/database" class="nav-link">
+          <span class="icon">05</span>
+          {{ t('nav.database') }}
+        </router-link>
       </div>
       <div class="nav-right">
         <button @click="toggleLocale" class="lang-btn">

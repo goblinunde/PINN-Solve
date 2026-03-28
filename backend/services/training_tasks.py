@@ -4,10 +4,12 @@ from uuid import uuid4
 
 from sqlalchemy import desc
 
-from data.models import TrainingTask, session_scope
+from data.models import TrainingTask, WorkerState, session_scope
 
 ACTIVE_STATUSES = {"queued", "running"}
 TERMINAL_STATUSES = {"completed", "failed", "cancelled"}
+WORKER_HEARTBEAT_TTL_SECONDS = 10
+STALE_TASK_TIMEOUT_SECONDS = 30
 
 
 def now_utc():
@@ -34,6 +36,38 @@ def current_loss(task: TrainingTask):
     if task.losses:
         return task.losses[-1]
     return None
+
+
+def _reconcile_stale_tasks(session):
+    now = now_utc()
+    workers = session.query(WorkerState).all()
+    claimed_task_ids = {
+        worker.last_task_id
+        for worker in workers
+        if worker.last_task_id
+        and worker.status != "offline"
+        and worker.last_heartbeat_at is not None
+        and (now - worker.last_heartbeat_at).total_seconds() <= WORKER_HEARTBEAT_TTL_SECONDS
+    }
+
+    active_tasks = session.query(TrainingTask).filter(TrainingTask.status.in_(ACTIVE_STATUSES)).all()
+    for task in active_tasks:
+        if task.task_id in claimed_task_ids or task.updated_at is None:
+            continue
+
+        stale_seconds = (now - task.updated_at).total_seconds()
+        if stale_seconds < STALE_TASK_TIMEOUT_SECONDS:
+            continue
+
+        if task.cancel_requested:
+            task.status = "cancelled"
+            task.note = task.note or "Task was cancelled after losing its worker heartbeat."
+        else:
+            task.status = "failed"
+            task.error = task.error or "Task became orphaned because no active worker continued the job."
+        task.finished_at = now
+        task.updated_at = now
+        session.add(task)
 
 
 def serialize_task(task: TrainingTask, detail: bool = False) -> dict:
@@ -95,6 +129,7 @@ def get_task(task_id: str) -> TrainingTask | None:
 
 def get_task_detail(task_id: str) -> dict | None:
     with session_scope() as session:
+        _reconcile_stale_tasks(session)
         task = session.get(TrainingTask, task_id)
         if task is None:
             return None
@@ -103,6 +138,7 @@ def get_task_detail(task_id: str) -> dict | None:
 
 def list_task_items() -> list[dict]:
     with session_scope() as session:
+        _reconcile_stale_tasks(session)
         tasks = session.query(TrainingTask).order_by(desc(TrainingTask.created_at)).all()
         return [serialize_task(task) for task in tasks]
 
