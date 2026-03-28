@@ -72,6 +72,7 @@ export default {
     statusFailed: 'Failed',
     statusCancelled: 'Cancelled',
     modeNative: 'Rust Native',
+    modePython: 'PyTorch',
     modeSimulated: 'Simulated',
     modePending: 'Pending'
   },

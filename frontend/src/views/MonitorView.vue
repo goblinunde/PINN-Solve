@@ -132,6 +132,7 @@ const statusText = computed(() => {
 
 const modeText = computed(() => {
   if (task.value?.mode === 'native') return t('monitor.modeNative')
+  if (task.value?.mode === 'python') return t('monitor.modePython')
   if (task.value?.mode === 'simulated') return t('monitor.modeSimulated')
   return t('monitor.modePending')
 })

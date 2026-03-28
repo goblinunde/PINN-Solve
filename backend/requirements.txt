@@ -10,3 +10,4 @@ scipy>=1.14.0
 matplotlib>=3.9.0
 python-multipart>=0.0.20
 websockets>=14.0
+torch>=2.4.0

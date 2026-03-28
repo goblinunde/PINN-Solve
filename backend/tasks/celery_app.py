@@ -201,6 +201,61 @@ def _run_simulated_training(task_id: str, config: dict, import_error: str):
         update_worker_state(WORKER_NAME, status="online", last_task_id=task_id, last_error=None)
 
 
+def _run_python_training(task_id: str, config: dict, fallback_reason: str):
+    if is_cancel_requested(task_id):
+        _mark_cancelled(task_id, "Task was cancelled before PyTorch training started.")
+        return
+
+    update_task(
+        task_id,
+        status="running",
+        progress=0.02,
+        mode="python",
+        note=f"Using PyTorch backend because Rust module is unavailable: {fallback_reason}",
+    )
+
+    try:
+        from tasks.torch_backend import train_with_torch
+    except ImportError as exc:
+        _run_simulated_training(task_id, config, f"{fallback_reason}; PyTorch backend unavailable: {exc}")
+        return
+
+    def _progress_callback(**payload):
+        update_task(task_id, status="running", mode="python", **payload)
+
+    def _cancel_callback():
+        return is_cancel_requested(task_id)
+
+    try:
+        result = train_with_torch(config, _progress_callback, _cancel_callback)
+        if is_cancel_requested(task_id):
+            _mark_cancelled(task_id, "Cancellation was requested before PyTorch results were stored.")
+            return
+
+        update_task(
+            task_id,
+            status="completed",
+            progress=1.0,
+            mode="python",
+            losses=result["losses"],
+            solution=result["solution"],
+            note=(
+                f"PyTorch backend completed on {result['device']} "
+                f"using {result['architecture']} architecture."
+            ),
+            finished_at=now_utc(),
+        )
+        if WORKER_NAME:
+            update_worker_state(WORKER_NAME, status="online", last_task_id=task_id, last_error=None)
+    except RuntimeError as exc:
+        if str(exc) == "cancelled":
+            _mark_cancelled(task_id, "Task was cancelled during PyTorch training.")
+            return
+        _mark_failed(task_id, str(exc))
+    except Exception as exc:
+        _mark_failed(task_id, str(exc))
+
+
 def _run_native_training(task_id: str, config: dict):
     if is_cancel_requested(task_id):
         _mark_cancelled(task_id, "Task was cancelled before native training started.")
@@ -211,7 +266,7 @@ def _run_native_training(task_id: str, config: dict):
     try:
         import pinn_core
     except ImportError as exc:
-        _run_simulated_training(task_id, config, str(exc))
+        _run_python_training(task_id, config, str(exc))
         return
 
     try:

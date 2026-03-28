@@ -118,6 +118,7 @@ def _normalize_training_config(raw_config: dict[str, Any]) -> dict[str, Any]:
     output_dim = max(1, int(network_config.get("output_dim") or 1))
     hidden_layers = _normalize_hidden_layers(network_config.get("hidden_layers"), legacy_layers)
     output_activation = network_config.get("output_activation") or "linear"
+    architecture = network_config.get("architecture") or "mlp"
 
     learning_rate = float(solver_config.get("learning_rate", config.get("learning_rate", 0.001)))
     n_points = max(16, int(config.get("n_points", 256)))
@@ -133,6 +134,7 @@ def _normalize_training_config(raw_config: dict[str, Any]) -> dict[str, Any]:
             "hidden_layers": hidden_layers,
             "output_dim": output_dim,
             "output_activation": output_activation,
+            "architecture": architecture,
         },
         "optimizer": solver_config.get("optimizer") or "adam",
         "learning_rate": learning_rate,

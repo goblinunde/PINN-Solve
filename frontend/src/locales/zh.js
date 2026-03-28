@@ -72,6 +72,7 @@ export default {
     statusFailed: '失败',
     statusCancelled: '已取消',
     modeNative: 'Rust 原生',
+    modePython: 'PyTorch',
     modeSimulated: '模拟数据',
     modePending: '准备中'
   },

@@ -74,6 +74,7 @@ let intervalId = null
 
 const formatMode = (mode) => {
   if (mode === 'native') return t('monitor.modeNative')
+  if (mode === 'python') return t('monitor.modePython')
   if (mode === 'simulated') return t('monitor.modeSimulated')
   return t('monitor.modePending')
 }
