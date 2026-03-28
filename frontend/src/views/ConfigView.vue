@@ -1,246 +1,285 @@
 <template>
-  <div class="config-view">
-    <section class="tech-card hero-card">
-      <div>
-        <h2 class="tech-title">{{ t('config.title') }}</h2>
+  <div class="config-view page-shell">
+    <section class="page-hero hero-card">
+      <div class="hero-copy">
+        <span class="section-kicker">{{ t('nav.config') }}</span>
+        <h2 class="page-title">{{ t('config.title') }}</h2>
         <p class="page-subtitle">{{ t('config.subtitle') }}</p>
       </div>
-      <div class="hero-pills">
-        <span class="pill">{{ currentPde?.name || '--' }}</span>
-        <span class="pill">{{ optimizerLabel }}</span>
-        <span class="pill">{{ networkSummary }}</span>
+
+      <div class="hero-side">
+        <div class="hero-pills">
+          <span class="pill">{{ currentPde?.name || '--' }}</span>
+          <span class="pill">{{ optimizerLabel }}</span>
+          <span class="pill">{{ networkSummary }}</span>
+        </div>
+
+        <div class="metric-strip">
+          <div class="metric-tile">
+            <span class="metric-tile-label">{{ t('config.epochs') }}</span>
+            <strong class="metric-tile-value">{{ form.epochs }}</strong>
+          </div>
+          <div class="metric-tile">
+            <span class="metric-tile-label">{{ t('config.nPoints') }}</span>
+            <strong class="metric-tile-value">{{ form.n_points }}</strong>
+          </div>
+          <div class="metric-tile">
+            <span class="metric-tile-label">{{ t('config.hiddenBlocks') }}</span>
+            <strong class="metric-tile-value">{{ hiddenLayers.length }}</strong>
+          </div>
+          <div class="metric-tile">
+            <span class="metric-tile-label">{{ t('config.residualBlocks') }}</span>
+            <strong class="metric-tile-value">{{ residualBlocks }}</strong>
+          </div>
+        </div>
       </div>
     </section>
 
     <div v-if="error" class="error-box">{{ error }}</div>
     <div v-if="usingFallbackCatalog" class="note-box">{{ t('config.catalogFallback') }}</div>
 
-    <div class="config-grid">
-      <section class="tech-card panel-card">
-        <div class="section-header">
-          <div>
-            <h3>{{ t('config.problemPreset') }}</h3>
-            <p class="section-caption">{{ equationPreview }}</p>
-          </div>
-        </div>
-
-        <div class="form-grid">
-          <div class="form-section wide">
-            <label>{{ t('config.name') }}</label>
-            <input
-              v-model="form.name"
-              :placeholder="t('config.namePlaceholder')"
-              class="tech-input"
-            />
+    <div class="config-layout">
+      <div class="config-main">
+        <section class="surface-card panel-card spotlight-card">
+          <div class="section-header">
+            <div>
+              <h3>{{ t('config.problemPreset') }}</h3>
+              <p class="section-caption">{{ equationPreview }}</p>
+            </div>
           </div>
 
-          <div class="form-section">
-            <label>{{ t('config.problemPreset') }}</label>
-            <select v-model="form.pde_kind" class="tech-input" @change="syncProblemDefaults">
-              <option v-for="preset in pdePresets" :key="preset.key" :value="preset.key">
-                {{ preset.name }}
-              </option>
-            </select>
-          </div>
-
-          <div class="form-section">
-            <label>{{ t('config.optimizer') }}</label>
-            <select v-model="form.optimizer" class="tech-input">
-              <option v-for="option in optimizerOptions" :key="option.key" :value="option.key">
-                {{ option.name }}
-              </option>
-            </select>
-          </div>
-
-          <div class="form-section">
-            <label>{{ t('config.outputActivation') }}</label>
-            <select v-model="form.output_activation" class="tech-input">
-              <option v-for="option in outputActivationOptions" :key="option.key" :value="option.key">
-                {{ option.name }}
-              </option>
-            </select>
-          </div>
-
-          <div class="form-section wide">
-            <span class="field-note">{{ currentPde?.description || t('config.problemPresetHelp') }}</span>
-          </div>
-
-          <div v-if="form.pde_kind === 'poisson_2d'" class="form-section">
-            <label>{{ t('config.sourceType') }}</label>
-            <select v-model="form.source_type" class="tech-input">
-              <option v-for="option in sourceTypeOptions" :key="option.key" :value="option.key">
-                {{ option.name }}
-              </option>
-            </select>
-          </div>
-
-          <div v-if="form.pde_kind === 'heat_1d'" class="form-section">
-            <label>{{ t('config.alpha') }}</label>
-            <input v-model.number="form.alpha" type="number" step="0.01" min="0.001" class="tech-input" />
-          </div>
-
-          <div v-if="form.pde_kind === 'burgers_1d'" class="form-section">
-            <label>{{ t('config.viscosity') }}</label>
-            <input
-              v-model.number="form.viscosity"
-              type="number"
-              step="0.001"
-              min="0.0001"
-              class="tech-input"
-            />
-          </div>
-        </div>
-      </section>
-
-      <section class="tech-card panel-card">
-        <div class="section-header">
-          <div>
-            <h3>{{ t('config.trainingParams') }}</h3>
-            <p class="section-caption">{{ t('config.trainingParamsHelp') }}</p>
-          </div>
-        </div>
-
-        <div class="form-grid">
-          <div class="form-section">
-            <label>{{ t('config.epochs') }}</label>
-            <input v-model.number="form.epochs" type="number" min="1" class="tech-input" />
-          </div>
-
-          <div class="form-section">
-            <label>{{ t('config.learningRate') }}</label>
-            <input v-model.number="form.learning_rate" type="number" step="0.0001" min="0.0001" class="tech-input" />
-          </div>
-
-          <div class="form-section">
-            <label>{{ t('config.nPoints') }}</label>
-            <input v-model.number="form.n_points" type="number" min="16" class="tech-input" />
-          </div>
-
-          <div class="form-section">
-            <label>{{ t('config.nBoundary') }}</label>
-            <input v-model.number="form.n_boundary" type="number" min="8" class="tech-input" />
-          </div>
-
-          <div class="form-section">
-            <label>{{ t('config.collocationBatchSize') }}</label>
-            <input
-              v-model.number="form.collocation_batch_size"
-              type="number"
-              min="1"
-              class="tech-input"
-            />
-          </div>
-
-          <div class="form-section">
-            <label>{{ t('config.lambdaBoundary') }}</label>
-            <input v-model.number="form.lambda_boundary" type="number" step="0.5" min="0" class="tech-input" />
-          </div>
-        </div>
-      </section>
-
-      <section class="tech-card panel-card builder-card">
-        <div class="section-header">
-          <div>
-            <h3>{{ t('config.networkBuilder') }}</h3>
-            <p class="section-caption">{{ t('config.networkBuilderHelp') }}</p>
-          </div>
-          <button class="ghost-btn" type="button" @click="addLayer">
-            {{ t('config.addBlock') }}
-          </button>
-        </div>
-
-        <div class="preset-row">
-          <button
-            v-for="preset in networkPresets"
-            :key="preset.key"
-            type="button"
-            class="preset-chip"
-            @click="applyNetworkPreset(preset.key)"
-          >
-            {{ preset.name }}
-          </button>
-        </div>
-
-        <div class="block-list">
-          <article v-for="(layer, index) in hiddenLayers" :key="index" class="block-card">
-            <div class="block-header">
-              <strong>{{ t('config.block') }} {{ index + 1 }}</strong>
-              <button
-                type="button"
-                class="text-btn"
-                :disabled="hiddenLayers.length === 1"
-                @click="removeLayer(index)"
-              >
-                {{ t('config.removeBlock') }}
-              </button>
+          <div class="form-grid">
+            <div class="form-section wide">
+              <label>{{ t('config.name') }}</label>
+              <input
+                v-model="form.name"
+                :placeholder="t('config.namePlaceholder')"
+                class="tech-input"
+              />
             </div>
 
-            <div class="form-grid compact-grid">
-              <div class="form-section">
-                <label>{{ t('config.units') }}</label>
-                <input v-model.number="layer.size" type="number" min="4" class="tech-input" />
-              </div>
-
-              <div class="form-section">
-                <label>{{ t('config.activation') }}</label>
-                <select v-model="layer.activation" class="tech-input">
-                  <option v-for="option in activationOptions" :key="option.key" :value="option.key">
-                    {{ option.name }}
-                  </option>
-                </select>
-              </div>
-
-              <label class="toggle-card">
-                <span>{{ t('config.residual') }}</span>
-                <input v-model="layer.residual" type="checkbox" />
-              </label>
+            <div class="form-section">
+              <label>{{ t('config.problemPreset') }}</label>
+              <select v-model="form.pde_kind" class="tech-input" @change="syncProblemDefaults">
+                <option v-for="preset in pdePresets" :key="preset.key" :value="preset.key">
+                  {{ preset.name }}
+                </option>
+              </select>
             </div>
-          </article>
-        </div>
-      </section>
 
-      <section class="tech-card panel-card summary-card">
-        <div class="section-header">
-          <div>
-            <h3>{{ t('config.summary') }}</h3>
-            <p class="section-caption">{{ t('config.summaryHelp') }}</p>
-          </div>
-        </div>
+            <div class="form-section">
+              <label>{{ t('config.optimizer') }}</label>
+              <select v-model="form.optimizer" class="tech-input">
+                <option v-for="option in optimizerOptions" :key="option.key" :value="option.key">
+                  {{ option.name }}
+                </option>
+              </select>
+            </div>
 
-        <div class="summary-list">
-          <div class="summary-item">
-            <span>{{ t('config.equationPreview') }}</span>
-            <strong>{{ equationPreview }}</strong>
-          </div>
-          <div class="summary-item">
-            <span>{{ t('config.network') }}</span>
-            <strong>{{ networkSummary }}</strong>
-          </div>
-          <div class="summary-item">
-            <span>{{ t('config.hiddenBlocks') }}</span>
-            <strong>{{ hiddenLayers.length }}</strong>
-          </div>
-          <div class="summary-item">
-            <span>{{ t('config.residualBlocks') }}</span>
-            <strong>{{ residualBlocks }}</strong>
-          </div>
-          <div class="summary-item">
-            <span>{{ t('config.inputDim') }}</span>
-            <strong>{{ currentPde?.input_dim || 2 }}</strong>
-          </div>
-          <div class="summary-item">
-            <span>{{ t('config.outputDim') }}</span>
-            <strong>1</strong>
-          </div>
-        </div>
-      </section>
-    </div>
+            <div class="form-section">
+              <label>{{ t('config.outputActivation') }}</label>
+              <select v-model="form.output_activation" class="tech-input">
+                <option v-for="option in outputActivationOptions" :key="option.key" :value="option.key">
+                  {{ option.name }}
+                </option>
+              </select>
+            </div>
 
-    <div class="footer-actions">
-      <button @click="submitConfig" class="tech-btn" :disabled="loading || catalogLoading">
-        <span class="btn-glow"></span>
-        {{ loading ? t('config.training') : t('config.startTraining') }}
-      </button>
+            <div class="form-section wide">
+              <span class="field-note">{{ currentPde?.description || t('config.problemPresetHelp') }}</span>
+            </div>
+
+            <div v-if="form.pde_kind === 'poisson_2d'" class="form-section">
+              <label>{{ t('config.sourceType') }}</label>
+              <select v-model="form.source_type" class="tech-input">
+                <option v-for="option in sourceTypeOptions" :key="option.key" :value="option.key">
+                  {{ option.name }}
+                </option>
+              </select>
+            </div>
+
+            <div v-if="form.pde_kind === 'heat_1d'" class="form-section">
+              <label>{{ t('config.alpha') }}</label>
+              <input v-model.number="form.alpha" type="number" step="0.01" min="0.001" class="tech-input" />
+            </div>
+
+            <div v-if="form.pde_kind === 'burgers_1d'" class="form-section">
+              <label>{{ t('config.viscosity') }}</label>
+              <input
+                v-model.number="form.viscosity"
+                type="number"
+                step="0.001"
+                min="0.0001"
+                class="tech-input"
+              />
+            </div>
+          </div>
+        </section>
+
+        <section class="surface-card panel-card">
+          <div class="section-header">
+            <div>
+              <h3>{{ t('config.trainingParams') }}</h3>
+              <p class="section-caption">{{ t('config.trainingParamsHelp') }}</p>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-section">
+              <label>{{ t('config.epochs') }}</label>
+              <input v-model.number="form.epochs" type="number" min="1" class="tech-input" />
+            </div>
+
+            <div class="form-section">
+              <label>{{ t('config.learningRate') }}</label>
+              <input v-model.number="form.learning_rate" type="number" step="0.0001" min="0.0001" class="tech-input" />
+            </div>
+
+            <div class="form-section">
+              <label>{{ t('config.nPoints') }}</label>
+              <input v-model.number="form.n_points" type="number" min="16" class="tech-input" />
+            </div>
+
+            <div class="form-section">
+              <label>{{ t('config.nBoundary') }}</label>
+              <input v-model.number="form.n_boundary" type="number" min="8" class="tech-input" />
+            </div>
+
+            <div class="form-section">
+              <label>{{ t('config.collocationBatchSize') }}</label>
+              <input
+                v-model.number="form.collocation_batch_size"
+                type="number"
+                min="1"
+                class="tech-input"
+              />
+            </div>
+
+            <div class="form-section">
+              <label>{{ t('config.lambdaBoundary') }}</label>
+              <input v-model.number="form.lambda_boundary" type="number" step="0.5" min="0" class="tech-input" />
+            </div>
+          </div>
+        </section>
+
+        <section class="surface-card panel-card builder-card">
+          <div class="section-header">
+            <div>
+              <h3>{{ t('config.networkBuilder') }}</h3>
+              <p class="section-caption">{{ t('config.networkBuilderHelp') }}</p>
+            </div>
+            <button class="ghost-btn" type="button" @click="addLayer">
+              {{ t('config.addBlock') }}
+            </button>
+          </div>
+
+          <div class="preset-row">
+            <button
+              v-for="preset in networkPresets"
+              :key="preset.key"
+              type="button"
+              class="preset-chip"
+              @click="applyNetworkPreset(preset.key)"
+            >
+              {{ preset.name }}
+            </button>
+          </div>
+
+          <div class="block-list">
+            <article v-for="(layer, index) in hiddenLayers" :key="index" class="block-card">
+              <div class="block-header">
+                <strong>{{ t('config.block') }} {{ index + 1 }}</strong>
+                <button
+                  type="button"
+                  class="text-btn"
+                  :disabled="hiddenLayers.length === 1"
+                  @click="removeLayer(index)"
+                >
+                  {{ t('config.removeBlock') }}
+                </button>
+              </div>
+
+              <div class="form-grid compact-grid">
+                <div class="form-section">
+                  <label>{{ t('config.units') }}</label>
+                  <input v-model.number="layer.size" type="number" min="4" class="tech-input" />
+                </div>
+
+                <div class="form-section">
+                  <label>{{ t('config.activation') }}</label>
+                  <select v-model="layer.activation" class="tech-input">
+                    <option v-for="option in activationOptions" :key="option.key" :value="option.key">
+                      {{ option.name }}
+                    </option>
+                  </select>
+                </div>
+
+                <label class="toggle-card">
+                  <span>{{ t('config.residual') }}</span>
+                  <input v-model="layer.residual" type="checkbox" />
+                </label>
+              </div>
+            </article>
+          </div>
+        </section>
+      </div>
+
+      <aside class="config-side">
+        <section class="surface-card panel-card summary-card">
+          <div class="section-header">
+            <div>
+              <h3>{{ t('config.summary') }}</h3>
+              <p class="section-caption">{{ t('config.summaryHelp') }}</p>
+            </div>
+          </div>
+
+          <div class="summary-list">
+            <div class="summary-item summary-wide">
+              <span>{{ t('config.equationPreview') }}</span>
+              <strong>{{ equationPreview }}</strong>
+            </div>
+            <div class="summary-item summary-wide">
+              <span>{{ t('config.network') }}</span>
+              <strong>{{ networkSummary }}</strong>
+            </div>
+            <div class="summary-item">
+              <span>{{ t('config.hiddenBlocks') }}</span>
+              <strong>{{ hiddenLayers.length }}</strong>
+            </div>
+            <div class="summary-item">
+              <span>{{ t('config.residualBlocks') }}</span>
+              <strong>{{ residualBlocks }}</strong>
+            </div>
+            <div class="summary-item">
+              <span>{{ t('config.inputDim') }}</span>
+              <strong>{{ currentPde?.input_dim || 2 }}</strong>
+            </div>
+            <div class="summary-item">
+              <span>{{ t('config.outputDim') }}</span>
+              <strong>1</strong>
+            </div>
+            <div class="summary-item">
+              <span>{{ t('config.nBoundary') }}</span>
+              <strong>{{ form.n_boundary }}</strong>
+            </div>
+            <div class="summary-item">
+              <span>{{ t('config.collocationBatchSize') }}</span>
+              <strong>{{ form.collocation_batch_size }}</strong>
+            </div>
+          </div>
+
+          <div class="launch-panel">
+            <div class="launch-copy">
+              <span class="launch-label">{{ t('config.startTraining') }}</span>
+              <p>{{ currentPde?.description || t('config.problemPresetHelp') }}</p>
+            </div>
+            <button @click="submitConfig" class="tech-btn" :disabled="loading || catalogLoading">
+              <span class="btn-glow"></span>
+              {{ loading ? t('config.training') : t('config.startTraining') }}
+            </button>
+          </div>
+        </section>
+      </aside>
     </div>
   </div>
 </template>
@@ -527,63 +566,49 @@ onMounted(() => {
 
 <style scoped>
 .config-view {
-  max-width: 1320px;
-  margin: 0 auto;
-}
-
-.tech-card {
-  background: rgba(26, 31, 58, 0.6);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(0, 150, 255, 0.3);
-  border-radius: 16px;
-  padding: 2rem;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-}
-
-.hero-card,
-.panel-card {
-  margin-bottom: 1.5rem;
-}
-
-.tech-title {
-  font-size: 2rem;
-  font-weight: 700;
-  background: linear-gradient(135deg, #00d4ff 0%, #0096ff 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  margin-bottom: 2rem;
-  text-align: center;
+  gap: 24px;
 }
 
 .page-subtitle,
 .section-caption,
 .field-note {
-  color: #8aa1d6;
+  color: var(--text-soft);
   line-height: 1.6;
 }
 
+.hero-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  gap: 24px;
+  align-items: stretch;
+}
+
+.hero-copy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.hero-side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .hero-pills,
-.preset-row,
-.footer-actions {
+.preset-row {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
 }
 
-.hero-card {
-  display: flex;
-  justify-content: space-between;
-  gap: 1.5rem;
-  align-items: flex-start;
-}
-
 .pill,
 .preset-chip {
-  background: rgba(0, 150, 255, 0.12);
-  border: 1px solid rgba(0, 150, 255, 0.28);
-  color: #dff6ff;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line-soft);
+  color: var(--text-main);
   border-radius: 999px;
-  padding: 0.55rem 0.95rem;
+  padding: 0.65rem 1rem;
   font-size: 0.9rem;
 }
 
@@ -591,23 +616,39 @@ onMounted(() => {
 .ghost-btn,
 .text-btn {
   cursor: pointer;
-  transition: all 0.25s;
+  transition: all 0.25s ease;
 }
 
 .preset-chip:hover,
 .ghost-btn:hover,
 .text-btn:hover {
   transform: translateY(-1px);
+  border-color: var(--line-strong);
+  background: rgba(255, 255, 255, 0.06);
 }
 
-.config-grid {
+.config-layout {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.7fr);
+  gap: 24px;
 }
 
-.builder-card {
-  grid-column: span 2;
+.config-main {
+  display: grid;
+  gap: 24px;
+}
+
+.config-side {
+  position: relative;
+}
+
+.panel-card {
+  margin: 0;
+}
+
+.summary-card {
+  position: sticky;
+  top: 110px;
 }
 
 .section-header {
@@ -615,18 +656,20 @@ onMounted(() => {
   justify-content: space-between;
   gap: 1rem;
   align-items: flex-start;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.35rem;
 }
 
 .section-header h3 {
   margin: 0;
-  color: #f4fbff;
+  color: var(--text-main);
+  font-size: 1.1rem;
+  letter-spacing: -0.02em;
 }
 
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.5rem;
+  gap: 18px;
 }
 
 .compact-grid {
@@ -644,37 +687,37 @@ onMounted(() => {
 }
 
 label {
-  color: #00d4ff;
+  color: var(--accent-strong);
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.1em;
 }
 
 .tech-input {
-  background: rgba(0, 20, 40, 0.5);
-  border: 1px solid rgba(0, 150, 255, 0.3);
-  color: #e0e0e0;
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line-soft);
+  color: var(--text-main);
+  padding: 0.95rem 1rem;
+  border-radius: 14px;
   font-size: 1rem;
-  transition: all 0.3s;
+  transition: all 0.25s ease;
 }
 
 .tech-input:focus {
   outline: none;
-  border-color: rgba(0, 150, 255, 0.8);
-  box-shadow: 0 0 20px rgba(0, 150, 255, 0.3);
-  background: rgba(0, 20, 40, 0.7);
+  border-color: rgba(139, 225, 255, 0.55);
+  box-shadow: 0 0 0 4px rgba(87, 184, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .ghost-btn,
 .text-btn {
-  border: 1px solid rgba(0, 150, 255, 0.3);
-  background: rgba(0, 150, 255, 0.12);
-  color: #00d4ff;
-  border-radius: 10px;
-  padding: 0.75rem 1rem;
+  border: 1px solid var(--line-soft);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-main);
+  border-radius: 14px;
+  padding: 0.8rem 1rem;
   font-weight: 600;
 }
 
@@ -689,16 +732,16 @@ label {
 
 .block-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
 }
 
 .block-card,
 .summary-item,
 .toggle-card {
-  background: rgba(9, 20, 45, 0.72);
-  border: 1px solid rgba(0, 150, 255, 0.16);
-  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 18px;
 }
 
 .block-card {
@@ -711,54 +754,91 @@ label {
   gap: 0.75rem;
   align-items: center;
   margin-bottom: 1rem;
-  color: #f4fbff;
+  color: var(--text-main);
 }
 
 .toggle-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.8rem 1rem;
-  color: #dff6ff;
+  padding: 0.85rem 1rem;
+  color: var(--text-main);
+}
+
+.toggle-card input {
+  accent-color: var(--accent);
 }
 
 .summary-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.9rem;
+  gap: 12px;
 }
 
 .summary-item {
   padding: 1rem 1.1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
-  color: #8aa1d6;
+  gap: 0.5rem;
+  color: var(--text-soft);
+  min-height: 112px;
+}
+
+.summary-wide {
+  grid-column: span 2;
+  min-height: auto;
 }
 
 .summary-item strong {
-  color: #f4fbff;
+  color: var(--text-main);
   line-height: 1.5;
 }
 
-.tech-btn {
-  min-width: 280px;
-  background: linear-gradient(135deg, #0096ff 0%, #00d4ff 100%);
-  color: white;
-  padding: 1rem 2rem;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 1.1rem;
+.launch-panel {
+  margin-top: 16px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: grid;
+  gap: 16px;
+}
+
+.launch-copy {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.launch-label {
+  color: var(--accent-warm);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
   font-weight: 700;
+}
+
+.launch-copy p {
+  color: var(--text-soft);
+  line-height: 1.7;
+}
+
+.tech-btn {
+  width: 100%;
+  background: linear-gradient(135deg, var(--accent-warm) 0%, var(--accent) 100%);
+  color: #07111f;
+  padding: 1rem 1.4rem;
+  border: none;
+  border-radius: 18px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
   position: relative;
   overflow: hidden;
-  transition: all 0.3s;
+  transition: all 0.3s ease;
 }
 
 .tech-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 8px 30px rgba(0, 150, 255, 0.5);
+  box-shadow: 0 20px 32px rgba(87, 184, 255, 0.28);
 }
 
 .tech-btn:disabled {
@@ -782,39 +862,53 @@ label {
 
 .error-box,
 .note-box {
-  margin-bottom: 1rem;
-  padding: 1rem;
-  border-radius: 8px;
+  padding: 1rem 1.15rem;
+  border-radius: 16px;
+  border: 1px solid;
 }
 
 .error-box {
-  background: rgba(255, 50, 50, 0.1);
-  border: 1px solid rgba(255, 50, 50, 0.3);
-  color: #ff6b6b;
+  background: rgba(255, 143, 143, 0.12);
+  border-color: rgba(255, 143, 143, 0.28);
+  color: var(--danger);
 }
 
 .note-box {
-  background: rgba(255, 185, 40, 0.1);
-  border: 1px solid rgba(255, 185, 40, 0.25);
-  color: #ffd98a;
+  background: rgba(255, 179, 107, 0.12);
+  border-color: rgba(255, 179, 107, 0.24);
+  color: #ffd8b1;
 }
 
 @media (max-width: 980px) {
-  .config-grid,
+  .hero-card,
+  .config-layout,
   .form-grid,
   .compact-grid,
   .summary-list {
     grid-template-columns: 1fr;
   }
 
-  .builder-card,
-  .wide {
+  .wide,
+  .summary-wide {
     grid-column: span 1;
   }
 
-  .hero-card,
   .section-header {
     flex-direction: column;
+  }
+
+  .summary-card {
+    position: static;
+  }
+}
+
+@media (max-width: 720px) {
+  .metric-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .block-list {
+    grid-template-columns: 1fr;
   }
 }
 </style>

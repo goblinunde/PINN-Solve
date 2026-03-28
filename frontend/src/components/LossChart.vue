@@ -20,36 +20,36 @@ const updateChart = () => {
     type: 'scatter',
     mode: 'lines',
     line: { 
-      color: '#00d4ff', 
-      width: 3,
+      color: '#8be1ff',
+      width: 3.5,
       shape: 'spline'
     },
     fill: 'tozeroy',
-    fillcolor: 'rgba(0, 212, 255, 0.1)'
+    fillcolor: 'rgba(87, 184, 255, 0.14)'
   }]
   
   const layout = {
     title: {
       text: 'Training Loss Curve',
-      font: { color: '#00d4ff', size: 18, family: 'Segoe UI' }
+      font: { color: '#eff6ff', size: 20, family: 'Avenir Next' }
     },
     paper_bgcolor: 'rgba(0, 0, 0, 0)',
-    plot_bgcolor: 'rgba(10, 14, 39, 0.5)',
+    plot_bgcolor: 'rgba(4, 10, 22, 0.48)',
     xaxis: { 
       title: 'Epoch',
-      color: '#a0a0a0',
-      gridcolor: 'rgba(0, 150, 255, 0.1)',
-      zerolinecolor: 'rgba(0, 150, 255, 0.2)'
+      color: '#9cb3ce',
+      gridcolor: 'rgba(255, 255, 255, 0.08)',
+      zerolinecolor: 'rgba(255, 255, 255, 0.12)'
     },
     yaxis: { 
       title: 'Loss', 
       type: 'log',
-      color: '#a0a0a0',
-      gridcolor: 'rgba(0, 150, 255, 0.1)',
-      zerolinecolor: 'rgba(0, 150, 255, 0.2)'
+      color: '#9cb3ce',
+      gridcolor: 'rgba(255, 255, 255, 0.08)',
+      zerolinecolor: 'rgba(255, 255, 255, 0.12)'
     },
     margin: { t: 50, r: 30, b: 50, l: 70 },
-    font: { color: '#e0e0e0' }
+    font: { color: '#eff6ff' }
   }
   
   const config = { 
@@ -67,8 +67,8 @@ watch(() => props.losses, updateChart, { deep: true })
 <style scoped>
 .chart-container {
   width: 100%;
-  height: 400px;
-  border-radius: 12px;
+  height: 420px;
+  border-radius: 18px;
   overflow: hidden;
 }
 </style>

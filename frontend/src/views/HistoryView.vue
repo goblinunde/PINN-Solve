@@ -1,45 +1,48 @@
 <template>
-  <div class="history-view">
-    <div class="page-header">
-      <div>
-        <h2 class="tech-title">{{ t('history.title') }}</h2>
-        <p class="page-subtitle">{{ t('history.subtitle') }}</p>
+  <div class="history-view page-shell">
+    <section class="page-hero">
+      <div class="page-header">
+        <div>
+          <span class="section-kicker">{{ t('nav.history') }}</span>
+          <h2 class="page-title">{{ t('history.title') }}</h2>
+          <p class="page-subtitle">{{ t('history.subtitle') }}</p>
+        </div>
+        <button class="ghost-btn" :disabled="loading || actionLoading" @click="loadTaskCenter()">
+          {{ loading ? t('history.refreshing') : t('history.refresh') }}
+        </button>
       </div>
-      <button class="ghost-btn" :disabled="loading || actionLoading" @click="loadTaskCenter()">
-        {{ loading ? t('history.refreshing') : t('history.refresh') }}
-      </button>
-    </div>
+
+      <div class="summary-grid">
+        <div class="summary-card">
+          <span class="summary-label">{{ t('history.total') }}</span>
+          <strong class="summary-value">{{ totalCount }}</strong>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">{{ t('history.active') }}</span>
+          <strong class="summary-value">{{ activeCount }}</strong>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">{{ t('history.completed') }}</span>
+          <strong class="summary-value">{{ completedCount }}</strong>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">{{ t('history.unhealthy') }}</span>
+          <strong class="summary-value">{{ unhealthyCount }}</strong>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">{{ t('history.onlineWorkers') }}</span>
+          <strong class="summary-value">{{ onlineWorkerCount }}</strong>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">{{ t('history.queueDepth') }}</span>
+          <strong class="summary-value">{{ queueDepth }}</strong>
+        </div>
+      </div>
+    </section>
 
     <div v-if="error" class="error-box">{{ error }}</div>
 
-    <div class="summary-grid">
-      <div class="summary-card tech-card">
-        <span class="summary-label">{{ t('history.total') }}</span>
-        <strong class="summary-value">{{ totalCount }}</strong>
-      </div>
-      <div class="summary-card tech-card">
-        <span class="summary-label">{{ t('history.active') }}</span>
-        <strong class="summary-value">{{ activeCount }}</strong>
-      </div>
-      <div class="summary-card tech-card">
-        <span class="summary-label">{{ t('history.completed') }}</span>
-        <strong class="summary-value">{{ completedCount }}</strong>
-      </div>
-      <div class="summary-card tech-card">
-        <span class="summary-label">{{ t('history.unhealthy') }}</span>
-        <strong class="summary-value">{{ unhealthyCount }}</strong>
-      </div>
-      <div class="summary-card tech-card">
-        <span class="summary-label">{{ t('history.onlineWorkers') }}</span>
-        <strong class="summary-value">{{ onlineWorkerCount }}</strong>
-      </div>
-      <div class="summary-card tech-card">
-        <span class="summary-label">{{ t('history.queueDepth') }}</span>
-        <strong class="summary-value">{{ queueDepth }}</strong>
-      </div>
-    </div>
-
-    <section class="worker-panel tech-card">
+    <section class="worker-panel surface-card">
       <div class="panel-header">
         <h3>{{ t('history.workerTitle') }}</h3>
         <span class="worker-summary" :class="{ offline: onlineWorkerCount === 0 }">
@@ -64,7 +67,7 @@
       <p v-else class="worker-empty">{{ t('history.workerEmpty') }}</p>
     </section>
 
-    <section class="toolbar tech-card">
+    <section class="toolbar surface-card">
       <div class="search-row">
         <input
           v-model="searchQuery"
@@ -103,16 +106,16 @@
       </div>
     </section>
 
-    <div v-if="tasks.length === 0" class="empty-state tech-card">
+    <div v-if="tasks.length === 0" class="empty-state surface-card">
       <p>{{ t('history.empty') }}</p>
     </div>
 
-    <div v-else-if="filteredTasks.length === 0" class="empty-state tech-card">
+    <div v-else-if="filteredTasks.length === 0" class="empty-state surface-card">
       <p>{{ t('history.noMatch') }}</p>
     </div>
 
     <div v-else class="task-list">
-      <article v-for="task in filteredTasks" :key="task.task_id" class="task-card tech-card">
+      <article v-for="task in filteredTasks" :key="task.task_id" class="task-card surface-card">
         <div class="task-top">
           <div class="task-header-left">
             <label class="select-box" :class="{ disabled: !task.can_delete }">
@@ -457,8 +460,7 @@ onUnmounted(() => {
 
 <style scoped>
 .history-view {
-  max-width: 1240px;
-  margin: 0 auto;
+  gap: 24px;
 }
 
 .page-header {
@@ -469,43 +471,28 @@ onUnmounted(() => {
   margin-bottom: 1.5rem;
 }
 
-.tech-title {
-  font-size: 2rem;
-  font-weight: 700;
-  background: linear-gradient(135deg, #00d4ff 0%, #0096ff 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  margin-bottom: 0.5rem;
-}
-
-.page-subtitle {
-  color: #94a8d6;
-  max-width: 780px;
-  line-height: 1.6;
-}
-
 .ghost-btn,
 .action-btn,
 .filter-chip {
   border: none;
-  border-radius: 10px;
+  border-radius: 16px;
   cursor: pointer;
   font-weight: 600;
-  transition: all 0.3s;
+  transition: all 0.25s ease;
 }
 
 .ghost-btn {
-  background: rgba(0, 150, 255, 0.12);
-  border: 1px solid rgba(0, 150, 255, 0.35);
-  color: #00d4ff;
-  padding: 0.8rem 1.2rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line-soft);
+  color: var(--text-main);
+  padding: 0.85rem 1.2rem;
 }
 
 .ghost-btn:hover:not(:disabled),
 .action-btn:hover,
 .filter-chip:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 150, 255, 0.18);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.18);
 }
 
 .ghost-btn:disabled,
@@ -514,37 +501,31 @@ onUnmounted(() => {
   cursor: not-allowed;
 }
 
-.tech-card {
-  background: rgba(26, 31, 58, 0.72);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(0, 150, 255, 0.22);
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
-}
-
 .error-box {
-  margin-bottom: 1.25rem;
   padding: 1rem 1.2rem;
-  background: rgba(255, 87, 87, 0.12);
-  border: 1px solid rgba(255, 87, 87, 0.35);
-  color: #ff8f8f;
-  border-radius: 12px;
+  background: rgba(255, 143, 143, 0.12);
+  border: 1px solid rgba(255, 143, 143, 0.28);
+  color: var(--danger);
+  border-radius: 18px;
 }
 
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 1rem;
-  margin-bottom: 1rem;
+  gap: 16px;
+  margin-bottom: 0;
 }
 
 .summary-card {
   padding: 1.25rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20px;
 }
 
 .summary-label {
   display: block;
-  color: #8aa1d6;
+  color: var(--text-dim);
   margin-bottom: 0.6rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -553,13 +534,12 @@ onUnmounted(() => {
 
 .summary-value {
   font-size: 2rem;
-  color: #f4fbff;
+  color: var(--text-main);
 }
 
 .worker-panel,
 .toolbar {
-  padding: 1.25rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0;
 }
 
 .panel-header {
@@ -571,22 +551,22 @@ onUnmounted(() => {
 }
 
 .panel-header h3 {
-  color: #f4fbff;
+  color: var(--text-main);
   font-size: 1.1rem;
 }
 
 .worker-summary {
   padding: 0.4rem 0.85rem;
   border-radius: 999px;
-  background: rgba(0, 255, 136, 0.14);
-  color: #00ff88;
-  border: 1px solid rgba(0, 255, 136, 0.28);
+  background: rgba(109, 240, 183, 0.12);
+  color: var(--success);
+  border: 1px solid rgba(109, 240, 183, 0.24);
 }
 
 .worker-summary.offline {
-  background: rgba(255, 126, 126, 0.14);
-  color: #ff8f8f;
-  border-color: rgba(255, 126, 126, 0.28);
+  background: rgba(255, 143, 143, 0.14);
+  color: var(--danger);
+  border-color: rgba(255, 143, 143, 0.28);
 }
 
 .worker-list {
@@ -600,19 +580,20 @@ onUnmounted(() => {
   align-items: center;
   gap: 1rem;
   padding: 0.95rem 1rem;
-  background: rgba(10, 14, 39, 0.38);
-  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 18px;
 }
 
 .worker-name {
   display: block;
-  color: #f4fbff;
+  color: var(--text-main);
   margin-bottom: 0.3rem;
 }
 
 .worker-meta,
 .worker-empty {
-  color: #94a8d6;
+  color: var(--text-soft);
 }
 
 .search-row,
@@ -630,37 +611,37 @@ onUnmounted(() => {
 
 .search-input {
   width: 100%;
-  background: rgba(10, 14, 39, 0.55);
-  border: 1px solid rgba(0, 150, 255, 0.24);
-  color: #f4fbff;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line-soft);
+  color: var(--text-main);
   padding: 0.9rem 1rem;
-  border-radius: 12px;
+  border-radius: 16px;
   font-size: 1rem;
 }
 
 .search-input:focus {
   outline: none;
-  border-color: rgba(0, 150, 255, 0.5);
-  box-shadow: 0 0 0 3px rgba(0, 150, 255, 0.12);
+  border-color: rgba(139, 225, 255, 0.55);
+  box-shadow: 0 0 0 4px rgba(87, 184, 255, 0.12);
 }
 
 .filter-chip {
   padding: 0.65rem 1rem;
-  background: rgba(0, 150, 255, 0.08);
-  color: #d7e5ff;
-  border: 1px solid rgba(0, 150, 255, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-soft);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .filter-chip.active {
-  background: rgba(0, 150, 255, 0.18);
-  color: #00d4ff;
-  border-color: rgba(0, 150, 255, 0.4);
+  background: linear-gradient(135deg, rgba(255, 179, 107, 0.18), rgba(87, 184, 255, 0.18));
+  color: var(--text-main);
+  border-color: rgba(255, 255, 255, 0.16);
 }
 
 .empty-state {
   padding: 3rem 1.5rem;
   text-align: center;
-  color: #94a8d6;
+  color: var(--text-soft);
 }
 
 .task-list {
@@ -702,13 +683,13 @@ onUnmounted(() => {
 }
 
 .task-head h3 {
-  color: #f4fbff;
+  color: var(--text-main);
   margin-bottom: 0.35rem;
   font-size: 1.2rem;
 }
 
 .task-head p {
-  color: #8aa1d6;
+  color: var(--text-soft);
   line-height: 1.5;
 }
 
@@ -721,36 +702,36 @@ onUnmounted(() => {
 }
 
 .status-badge.queued {
-  color: #ffd66b;
-  background: rgba(255, 214, 107, 0.14);
-  border: 1px solid rgba(255, 214, 107, 0.32);
+  color: #ffd792;
+  background: rgba(255, 179, 107, 0.16);
+  border: 1px solid rgba(255, 179, 107, 0.26);
 }
 
 .status-badge.running,
 .status-badge.online {
-  color: #00d4ff;
-  background: rgba(0, 212, 255, 0.14);
-  border: 1px solid rgba(0, 212, 255, 0.32);
+  color: var(--accent-strong);
+  background: rgba(87, 184, 255, 0.16);
+  border: 1px solid rgba(87, 184, 255, 0.26);
 }
 
 .status-badge.cancelling {
-  color: #ffb86b;
-  background: rgba(255, 184, 107, 0.14);
-  border: 1px solid rgba(255, 184, 107, 0.32);
+  color: #ffd3a7;
+  background: rgba(255, 179, 107, 0.14);
+  border: 1px solid rgba(255, 179, 107, 0.28);
 }
 
 .status-badge.completed {
-  color: #00ff88;
-  background: rgba(0, 255, 136, 0.14);
-  border: 1px solid rgba(0, 255, 136, 0.32);
+  color: var(--success);
+  background: rgba(109, 240, 183, 0.14);
+  border: 1px solid rgba(109, 240, 183, 0.28);
 }
 
 .status-badge.failed,
 .status-badge.cancelled,
 .status-badge.offline {
-  color: #ff7e7e;
-  background: rgba(255, 126, 126, 0.14);
-  border: 1px solid rgba(255, 126, 126, 0.32);
+  color: var(--danger);
+  background: rgba(255, 143, 143, 0.14);
+  border: 1px solid rgba(255, 143, 143, 0.28);
 }
 
 .meta-grid {
@@ -762,19 +743,20 @@ onUnmounted(() => {
 
 .meta-item {
   padding: 0.9rem 1rem;
-  background: rgba(10, 14, 39, 0.4);
-  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
 }
 
 .meta-label {
   display: block;
-  color: #8aa1d6;
+  color: var(--text-dim);
   font-size: 0.82rem;
   margin-bottom: 0.35rem;
 }
 
 .meta-value {
-  color: #f4fbff;
+  color: var(--text-main);
   line-height: 1.5;
 }
 
@@ -790,31 +772,31 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  color: #d7e5ff;
+  color: var(--text-main);
   margin-bottom: 0.55rem;
 }
 
 .progress-bar {
   height: 10px;
-  background: rgba(10, 14, 39, 0.65);
+  background: rgba(4, 10, 22, 0.66);
   border-radius: 999px;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #0096ff, #00d4ff);
-  box-shadow: 0 0 18px rgba(0, 212, 255, 0.5);
+  background: linear-gradient(90deg, var(--accent), var(--accent-warm));
+  box-shadow: 0 0 18px rgba(87, 184, 255, 0.4);
 }
 
 .task-note {
   margin-bottom: 1rem;
   padding: 0.85rem 1rem;
-  border-left: 3px solid rgba(0, 150, 255, 0.55);
-  background: rgba(10, 14, 39, 0.35);
-  color: #b5c7ee;
+  border-left: 3px solid rgba(255, 179, 107, 0.55);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-soft);
   line-height: 1.6;
-  border-radius: 10px;
+  border-radius: 14px;
 }
 
 .actions {
@@ -826,29 +808,30 @@ onUnmounted(() => {
 .action-btn {
   padding: 0.75rem 1rem;
   min-width: 96px;
+  border: 1px solid transparent;
 }
 
 .action-btn.primary {
-  background: linear-gradient(135deg, #0096ff 0%, #00d4ff 100%);
-  color: #ffffff;
+  background: linear-gradient(135deg, var(--accent-warm) 0%, var(--accent) 100%);
+  color: #07111f;
 }
 
 .action-btn.secondary {
-  background: rgba(0, 150, 255, 0.12);
-  color: #d7e5ff;
-  border: 1px solid rgba(0, 150, 255, 0.24);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-main);
+  border-color: var(--line-soft);
 }
 
 .action-btn.warning {
-  background: rgba(255, 184, 107, 0.12);
-  color: #ffd197;
-  border: 1px solid rgba(255, 184, 107, 0.24);
+  background: rgba(255, 179, 107, 0.12);
+  color: #ffd7ae;
+  border-color: rgba(255, 179, 107, 0.24);
 }
 
 .action-btn.danger {
-  background: rgba(255, 126, 126, 0.12);
-  color: #ffaaaa;
-  border: 1px solid rgba(255, 126, 126, 0.24);
+  background: rgba(255, 143, 143, 0.12);
+  color: #ffc1c1;
+  border-color: rgba(255, 143, 143, 0.24);
 }
 
 @media (max-width: 768px) {

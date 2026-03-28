@@ -1,45 +1,48 @@
 <template>
-  <div class="results-view">
-    <div class="page-header">
-      <div>
-        <h2 class="tech-title">{{ t('results.title') }}</h2>
-        <p class="page-subtitle">{{ task?.name || taskId }}</p>
+  <div class="results-view page-shell">
+    <section class="page-hero">
+      <div class="page-header">
+        <div>
+          <span class="section-kicker">{{ t('nav.results') }}</span>
+          <h2 class="page-title">{{ t('results.title') }}</h2>
+          <p class="page-subtitle">{{ task?.name || taskId }}</p>
+        </div>
+        <div class="header-actions">
+          <button class="ghost-btn" @click="goToMonitor">{{ t('results.backToMonitor') }}</button>
+          <button class="ghost-btn" @click="goToTasks">{{ t('results.backToTasks') }}</button>
+        </div>
       </div>
-      <div class="header-actions">
-        <button class="ghost-btn" @click="goToMonitor">{{ t('results.backToMonitor') }}</button>
-        <button class="ghost-btn" @click="goToTasks">{{ t('results.backToTasks') }}</button>
+
+      <div v-if="task" class="info-grid">
+        <div class="info-card">
+          <span class="info-label">{{ t('results.taskId') }}</span>
+          <strong class="info-value monospace">{{ task.task_id }}</strong>
+        </div>
+        <div class="info-card">
+          <span class="info-label">{{ t('results.taskName') }}</span>
+          <strong class="info-value">{{ task.name }}</strong>
+        </div>
+        <div class="info-card">
+          <span class="info-label">{{ t('results.status') }}</span>
+          <strong class="info-value">{{ formatStatus(task.status) }}</strong>
+        </div>
+        <div class="info-card">
+          <span class="info-label">{{ t('results.mode') }}</span>
+          <strong class="info-value">{{ formatMode(task.mode) }}</strong>
+        </div>
       </div>
-    </div>
+    </section>
 
     <div v-if="errorMessage" class="error-box">{{ errorMessage }}</div>
 
-    <div v-if="task" class="info-grid">
-      <div class="info-card tech-card">
-        <span class="info-label">{{ t('results.taskId') }}</span>
-        <strong class="info-value monospace">{{ task.task_id }}</strong>
-      </div>
-      <div class="info-card tech-card">
-        <span class="info-label">{{ t('results.taskName') }}</span>
-        <strong class="info-value">{{ task.name }}</strong>
-      </div>
-      <div class="info-card tech-card">
-        <span class="info-label">{{ t('results.status') }}</span>
-        <strong class="info-value">{{ formatStatus(task.status) }}</strong>
-      </div>
-      <div class="info-card tech-card">
-        <span class="info-label">{{ t('results.mode') }}</span>
-        <strong class="info-value">{{ formatMode(task.mode) }}</strong>
-      </div>
-    </div>
-
-    <div v-if="solution.u.length > 0" class="viz-container tech-card">
+    <section v-if="solution.u.length > 0" class="surface-card viz-container">
       <h3 class="viz-title">{{ t('results.visualization') }}</h3>
       <SolutionPlot :x="solution.x" :y="solution.y" :u="solution.u" />
-    </div>
+    </section>
 
-    <div v-else class="waiting-box tech-card">
+    <section v-else class="surface-card waiting-box">
       <p>{{ t('results.waiting') }}</p>
-    </div>
+    </section>
   </div>
 </template>
 
@@ -141,8 +144,7 @@ onUnmounted(() => {
 
 <style scoped>
 .results-view {
-  max-width: 1200px;
-  margin: 0 auto;
+  gap: 24px;
 }
 
 .page-header {
@@ -153,20 +155,6 @@ onUnmounted(() => {
   margin-bottom: 1.5rem;
 }
 
-.tech-title {
-  font-size: 2rem;
-  font-weight: 700;
-  background: linear-gradient(135deg, #00d4ff 0%, #0096ff 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  margin-bottom: 0.5rem;
-}
-
-.page-subtitle {
-  color: #8aa1d6;
-  line-height: 1.6;
-}
-
 .header-actions {
   display: flex;
   flex-wrap: wrap;
@@ -174,52 +162,45 @@ onUnmounted(() => {
 }
 
 .ghost-btn {
-  background: rgba(0, 150, 255, 0.12);
-  border: 1px solid rgba(0, 150, 255, 0.35);
-  color: #00d4ff;
-  padding: 0.8rem 1.2rem;
-  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line-soft);
+  color: var(--text-main);
+  padding: 0.85rem 1.2rem;
+  border-radius: 16px;
   cursor: pointer;
   font-weight: 600;
-  transition: all 0.3s;
+  transition: all 0.25s ease;
 }
 
 .ghost-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 150, 255, 0.18);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.18);
 }
 
 .error-box {
-  margin-bottom: 1.25rem;
   padding: 1rem 1.2rem;
-  background: rgba(255, 87, 87, 0.12);
-  border: 1px solid rgba(255, 87, 87, 0.35);
-  color: #ff8f8f;
-  border-radius: 12px;
-}
-
-.tech-card {
-  background: rgba(26, 31, 58, 0.72);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(0, 150, 255, 0.22);
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+  background: rgba(255, 143, 143, 0.12);
+  border: 1px solid rgba(255, 143, 143, 0.28);
+  color: var(--danger);
+  border-radius: 18px;
 }
 
 .info-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1rem;
-  margin-bottom: 1.5rem;
+  gap: 16px;
 }
 
 .info-card {
   padding: 1.25rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20px;
 }
 
 .info-label {
   display: block;
-  color: #8aa1d6;
+  color: var(--text-dim);
   margin-bottom: 0.5rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -227,7 +208,7 @@ onUnmounted(() => {
 }
 
 .info-value {
-  color: #f4fbff;
+  color: var(--text-main);
   font-size: 1.2rem;
   line-height: 1.5;
 }
@@ -238,18 +219,19 @@ onUnmounted(() => {
 
 .viz-container,
 .waiting-box {
-  padding: 1.5rem;
+  padding: 24px;
 }
 
 .viz-title {
-  color: #00d4ff;
+  color: var(--accent-strong);
   margin: 0 0 1rem 0;
-  font-size: 1.2rem;
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
 }
 
 .waiting-box {
   text-align: center;
-  color: #94a8d6;
+  color: var(--text-soft);
 }
 
 @media (max-width: 768px) {

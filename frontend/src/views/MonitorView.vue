@@ -1,69 +1,78 @@
 <template>
-  <div class="monitor-view">
-    <div class="page-header">
-      <div>
-        <h2 class="tech-title">{{ t('monitor.title') }}</h2>
-        <p class="page-subtitle">{{ task?.name || taskId }}</p>
+  <div class="monitor-view page-shell">
+    <section class="page-hero">
+      <div class="page-header">
+        <div>
+          <span class="section-kicker">{{ t('nav.monitor') }}</span>
+          <h2 class="page-title">{{ t('monitor.title') }}</h2>
+          <p class="page-subtitle">{{ task?.name || taskId }}</p>
+        </div>
+        <div class="header-actions">
+          <button class="ghost-btn" @click="loadTask()">{{ t('monitor.refresh') }}</button>
+          <button class="ghost-btn" @click="viewTasks">{{ t('monitor.backToTasks') }}</button>
+        </div>
       </div>
-      <div class="header-actions">
-        <button class="ghost-btn" @click="loadTask()">{{ t('monitor.refresh') }}</button>
-        <button class="ghost-btn" @click="viewTasks">{{ t('monitor.backToTasks') }}</button>
+
+      <div class="metrics-grid hero-metrics">
+        <div class="metric-card">
+          <span class="metric-label">{{ t('monitor.currentLoss') }}</span>
+          <strong class="metric-value">{{ formatLoss(task?.current_loss) }}</strong>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">{{ t('monitor.progress') }}</span>
+          <strong class="metric-value">{{ progressPercent }}%</strong>
+          <div class="progress-bar">
+            <div class="progress-fill" :style="{ width: `${progressPercent}%` }"></div>
+          </div>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">{{ t('monitor.status') }}</span>
+          <strong class="metric-value" :class="statusClass">{{ statusText }}</strong>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">{{ t('monitor.mode') }}</span>
+          <strong class="metric-value">{{ modeText }}</strong>
+        </div>
       </div>
-    </div>
+    </section>
 
     <div v-if="errorMessage" class="error-box">{{ errorMessage }}</div>
 
-    <div class="metrics-grid">
-      <div class="metric-card">
-        <span class="metric-label">{{ t('monitor.currentLoss') }}</span>
-        <strong class="metric-value">{{ formatLoss(task?.current_loss) }}</strong>
+    <section v-if="task" class="surface-card">
+      <div class="detail-header">
+        <p class="page-subtitle">{{ task?.name || taskId }}</p>
       </div>
-      <div class="metric-card">
-        <span class="metric-label">{{ t('monitor.progress') }}</span>
-        <strong class="metric-value">{{ progressPercent }}%</strong>
-        <div class="progress-bar">
-          <div class="progress-fill" :style="{ width: `${progressPercent}%` }"></div>
-        </div>
-      </div>
-      <div class="metric-card">
-        <span class="metric-label">{{ t('monitor.status') }}</span>
-        <strong class="metric-value" :class="statusClass">{{ statusText }}</strong>
-      </div>
-      <div class="metric-card">
-        <span class="metric-label">{{ t('monitor.mode') }}</span>
-        <strong class="metric-value">{{ modeText }}</strong>
-      </div>
-    </div>
 
-    <div v-if="task" class="detail-grid">
-      <div class="detail-card tech-card">
+      <div class="detail-grid">
+        <div class="detail-card">
         <span class="detail-label">{{ t('monitor.taskId') }}</span>
         <strong class="detail-value monospace">{{ task.task_id }}</strong>
-      </div>
-      <div class="detail-card tech-card">
+        </div>
+        <div class="detail-card">
         <span class="detail-label">{{ t('monitor.taskName') }}</span>
         <strong class="detail-value">{{ task.name }}</strong>
-      </div>
-      <div class="detail-card tech-card">
+        </div>
+        <div class="detail-card">
         <span class="detail-label">{{ t('monitor.pde') }}</span>
         <strong class="detail-value">{{ task.config?.pde || '--' }}</strong>
-      </div>
-      <div class="detail-card tech-card">
+        </div>
+        <div class="detail-card">
         <span class="detail-label">{{ t('monitor.network') }}</span>
         <strong class="detail-value">{{ formatLayers(task.config) }}</strong>
-      </div>
-      <div class="detail-card tech-card">
+        </div>
+        <div class="detail-card">
         <span class="detail-label">{{ t('monitor.epochs') }}</span>
         <strong class="detail-value">{{ task.config?.epochs ?? '--' }}</strong>
+        </div>
       </div>
-    </div>
 
-    <div v-if="task?.note" class="note-box">{{ task.note }}</div>
+      <div v-if="task?.note" class="note-box inline-note">{{ task.note }}</div>
+    </section>
 
-    <div class="chart-container tech-card">
+    <section class="surface-card chart-container">
       <LossChart v-if="hasLosses" :losses="task.losses" />
       <div v-else class="chart-empty">{{ t('monitor.chartEmpty') }}</div>
-    </div>
+    </section>
 
     <div class="actions">
       <button v-if="task?.can_cancel" class="action-btn warning" @click="cancelTask">
@@ -204,8 +213,7 @@ onUnmounted(() => {
 
 <style scoped>
 .monitor-view {
-  max-width: 1200px;
-  margin: 0 auto;
+  gap: 24px;
 }
 
 .page-header {
@@ -216,18 +224,12 @@ onUnmounted(() => {
   margin-bottom: 1.5rem;
 }
 
-.tech-title {
-  font-size: 2rem;
-  font-weight: 700;
-  background: linear-gradient(135deg, #00d4ff 0%, #0096ff 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  margin-bottom: 0.5rem;
+.hero-metrics {
+  margin-bottom: 0;
 }
 
-.page-subtitle {
-  color: #8aa1d6;
-  line-height: 1.6;
+.detail-header {
+  margin-bottom: 1.25rem;
 }
 
 .header-actions,
@@ -239,59 +241,61 @@ onUnmounted(() => {
 
 .ghost-btn,
 .action-btn {
-  border-radius: 10px;
+  border-radius: 16px;
   cursor: pointer;
   font-weight: 600;
-  transition: all 0.3s;
+  transition: all 0.25s ease;
 }
 
 .ghost-btn {
-  background: rgba(0, 150, 255, 0.12);
-  border: 1px solid rgba(0, 150, 255, 0.35);
-  color: #00d4ff;
-  padding: 0.8rem 1.2rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line-soft);
+  color: var(--text-main);
+  padding: 0.85rem 1.2rem;
 }
 
 .ghost-btn:hover,
 .action-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 150, 255, 0.18);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.18);
 }
 
 .error-box,
 .note-box {
   margin-bottom: 1.25rem;
   padding: 1rem 1.2rem;
-  border-radius: 12px;
+  border-radius: 18px;
 }
 
 .error-box {
-  background: rgba(255, 87, 87, 0.12);
-  border: 1px solid rgba(255, 87, 87, 0.35);
-  color: #ff8f8f;
+  background: rgba(255, 143, 143, 0.12);
+  border: 1px solid rgba(255, 143, 143, 0.28);
+  color: var(--danger);
 }
 
 .note-box {
-  background: rgba(0, 150, 255, 0.12);
-  border: 1px solid rgba(0, 150, 255, 0.3);
-  color: #b5c7ee;
+  background: rgba(255, 179, 107, 0.1);
+  border: 1px solid rgba(255, 179, 107, 0.24);
+  color: #ffd6ac;
+}
+
+.inline-note {
+  margin-bottom: 0;
 }
 
 .metrics-grid,
 .detail-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1rem;
+  gap: 16px;
   margin-bottom: 1.5rem;
 }
 
 .metric-card,
-.tech-card {
-  background: rgba(26, 31, 58, 0.72);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(0, 150, 255, 0.22);
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+.detail-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20px;
 }
 
 .metric-card,
@@ -302,7 +306,7 @@ onUnmounted(() => {
 .metric-label,
 .detail-label {
   display: block;
-  color: #8aa1d6;
+  color: var(--text-dim);
   margin-bottom: 0.5rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -311,24 +315,24 @@ onUnmounted(() => {
 
 .metric-value,
 .detail-value {
-  color: #f4fbff;
+  color: var(--text-main);
   font-size: 1.3rem;
   line-height: 1.5;
 }
 
 .metric-value.completed {
-  color: #00ff88;
+  color: var(--success);
 }
 
 .metric-value.failed,
 .metric-value.cancelled {
-  color: #ff7e7e;
+  color: var(--danger);
 }
 
 .metric-value.running,
 .metric-value.cancelling,
 .metric-value.queued {
-  color: #00d4ff;
+  color: var(--accent-strong);
 }
 
 .monospace {
@@ -338,19 +342,18 @@ onUnmounted(() => {
 .progress-bar {
   margin-top: 1rem;
   height: 10px;
-  background: rgba(10, 14, 39, 0.65);
+  background: rgba(4, 10, 22, 0.66);
   border-radius: 999px;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #0096ff, #00d4ff);
-  box-shadow: 0 0 18px rgba(0, 212, 255, 0.5);
+  background: linear-gradient(90deg, var(--accent), var(--accent-warm));
+  box-shadow: 0 0 18px rgba(87, 184, 255, 0.38);
 }
 
 .chart-container {
-  padding: 1.5rem;
   margin-bottom: 1.5rem;
 }
 
@@ -358,29 +361,29 @@ onUnmounted(() => {
   min-height: 240px;
   display: grid;
   place-items: center;
-  color: #94a8d6;
+  color: var(--text-soft);
 }
 
 .action-btn {
-  border: none;
-  padding: 0.85rem 1.1rem;
+  border: 1px solid transparent;
+  padding: 0.95rem 1.2rem;
 }
 
 .action-btn.primary {
-  background: linear-gradient(135deg, #0096ff 0%, #00d4ff 100%);
-  color: #ffffff;
+  background: linear-gradient(135deg, var(--accent-warm) 0%, var(--accent) 100%);
+  color: #07111f;
 }
 
 .action-btn.secondary {
-  background: rgba(0, 150, 255, 0.12);
-  color: #d7e5ff;
-  border: 1px solid rgba(0, 150, 255, 0.24);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-main);
+  border-color: var(--line-soft);
 }
 
 .action-btn.warning {
-  background: rgba(255, 184, 107, 0.12);
-  color: #ffd197;
-  border: 1px solid rgba(255, 184, 107, 0.24);
+  background: rgba(255, 179, 107, 0.12);
+  color: #ffd3a7;
+  border-color: rgba(255, 179, 107, 0.24);
 }
 
 @media (max-width: 768px) {
