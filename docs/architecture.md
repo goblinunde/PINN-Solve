@@ -1,87 +1,198 @@
 # PINN-Solve 架构说明
 
-## 总览
+本文档描述当前仓库的核心模块、运行路径、训练回退机制、数据库工作台和安全敏感信息的处理方式。
 
-PINN-Solve 目前采用三层结构:
+## 1. 总体结构
+
+项目由 4 个主要部分构成:
 
 1. `pinn-core/`
-   Rust 原生计算核心，负责网络前向/反向传播、优化器更新、PDE 残差计算和 PyO3 绑定。
+   Rust 原生求解核心，负责数值计算、网络结构、自动微分和 PyO3 绑定。
 2. `backend/`
-   FastAPI 提供 REST API，Celery worker 负责异步训练任务，SQLite 存储任务与 worker 状态。
+   FastAPI 提供 REST API，Celery worker 执行异步训练任务，SQLAlchemy 负责持久化。
 3. `frontend/`
-   Vue 负责配置、任务中心、监控和结果可视化，前端通过轮询获取训练进度。
+   Vue 3 + Vite 前端，负责参数配置、任务监控、结果展示和数据库工作台。
+4. `docs/`
+   项目文档、操作指南和排障说明。
 
-## 运行时组件
+## 2. 模块职责
 
-- `frontend/src/views/ConfigView.vue`
-  积木式配置界面，提交 `solver_config`、训练参数和任务元数据。
-- `backend/api/training.py`
-  训练任务入口，负责兼容旧配置并标准化为统一的 `solver_config`。
-- `backend/tasks/celery_app.py`
-  Celery worker 入口，调用 Rust 模块执行原生训练，并写回损失、状态和解。
-- `backend/services/training_tasks.py`
-  统一处理任务创建、序列化、取消、重试、删除和状态统计。
-- `backend/services/system_status.py`
-  维护 worker 心跳、在线状态和队列概览。
-- `pinn-core/src/solver/mod.rs`
-  定义 `SolverConfig`、PDE 预设、边界采样、PDE 残差和训练流程。
-- `pinn-core/src/nn/mod.rs`
-  定义网络层、激活函数、残差块和优化器实现。
+### Rust 核心
 
-## 数据流
+主要目录:
 
-1. 前端从 `GET /api/problems/catalog` 拉取 PDE、优化器、激活函数和网络预设。
-2. 用户在配置页组装网络并提交 `POST /api/train/`。
-3. FastAPI 将配置归一化后持久化到 `training_jobs`，再投递 Celery 任务。
-4. Worker 从队列取任务，调用 `pinn_core` 原生求解器训练。
-5. 训练状态、损失曲线、结果网格和错误信息持续写回 SQLite。
-6. 前端监控页和任务中心通过轮询 `train`、`results`、`system` 接口刷新状态。
+- `pinn-core/src/autodiff`
+- `pinn-core/src/nn`
+- `pinn-core/src/numerics`
+- `pinn-core/src/solver`
+- `pinn-core/src/gpu`
+- `pinn-core/src/bindings`
+
+职责:
+
+- 定义 PINN 网络结构
+- 计算 PDE 残差和边界损失
+- 执行优化器更新
+- 暴露 Python 可调用接口
+- 管理部分密钥加密/解密能力
+
+### 后端
+
+主要目录:
+
+- `backend/api`
+- `backend/services`
+- `backend/tasks`
+- `backend/data`
+
+职责:
+
+- 接收前端训练请求
+- 管理训练任务生命周期
+- 根据运行环境选择 Rust 或 Python/Torch 后端
+- 管理数据库工作台接口
+- 管理训练数据集导入
+- 保存任务、结果、连接配置和数据集
+
+### 前端
+
+主要目录:
+
+- `frontend/src/views`
+- `frontend/src/components`
+- `frontend/src/router`
+- `frontend/src/store`
+- `frontend/src/locales`
+
+职责:
+
+- 配置 PDE 和网络结构
+- 监控训练进度
+- 展示损失曲线和结果图
+- 管理数据库连接、建库建表和数据导入
+
+## 3. 训练请求数据流
+
+训练数据流如下:
+
+1. 前端调用 `GET /api/problems/catalog` 获取 PDE、优化器和激活函数目录
+2. 用户在配置页填写训练参数与 `solver_config`
+3. 前端调用 `POST /api/train/`
+4. 后端将任务写入 `training_jobs`
+5. Celery worker 读取任务并选择训练后端
+6. 训练过程持续写回进度、损失和结果
+7. 前端监控页和结果页通过轮询刷新显示
+
+## 4. 训练后端选择策略
+
+训练执行链路不是单一路径，而是按优先级回退:
+
+1. Rust `pinn_core`
+2. Python/Torch
+3. 模拟数据
+
+行为说明:
+
+- Rust 模块可用时，优先使用 Rust 原生求解
+- Rust 模块不可用时，尝试使用 `backend/tasks/torch_backend.py`
+- 若 PyTorch 也不可用，则返回模拟训练数据，避免前端完全中断
+
+## 5. CPU/GPU 运行策略
+
+后端通过 `PINNSOLVER_TORCH_DEVICE` 控制运行设备:
+
+- `cpu`
+- `cuda`
+- `auto`
+
+运行时状态可通过 `GET /health` 查看，返回值中包含:
+
+- `torch_runtime.available`
+- `torch_runtime.device`
+- `torch_runtime.cuda_available`
+- `torch_runtime.requested_device`
+
+这套设计用于适配两类机器:
+
+- 无 NVIDIA 显卡的开发机，固定 CPU
+- 有 NVIDIA 显卡且装好 CUDA 的训练机，优先 GPU
+
+## 6. 数据存储结构
+
+当前后端支持两种主持久化后端:
+
+- SQLite
+- MySQL
+
+主要模型包括:
+
+- `training_jobs`
+  训练任务、进度、损失、结果和取消状态
+- `worker_states`
+  worker 心跳和在线状态
+- `db_connection_profiles`
+  数据库工作台的连接配置
+- `training_datasets`
+  导入的数据集
+
+## 7. 数据库工作台架构
+
+数据库工作台的接口前缀为 `/api/db`，支持:
+
+- 保存连接配置
+- 测试连接
+- 读取 schema
+- 创建数据库
+- 创建表
+- 插入 JSON 行数据
+- 导入 CSV 数据
+
+支持两类连接:
+
+- 本地 MySQL 直连
+- 通过 SSH 隧道连接云端 MySQL
+
+后端主要由 `backend/services/db_workspace.py` 提供数据库连接、建库建表和数据写入能力。
+
+## 8. 密码与密钥处理
+
+数据库工作台支持保存:
+
+- 数据库密码
+- SSH 密码
+- SSH 私钥口令
+
+设计原则:
+
+- 前端不回显已保存口令
+- 保存时由后端调用 Rust 加密逻辑
+- 连接数据库时再短暂解密
+- 主密钥保存在本机，不经由前端暴露
+
+这不是完整的密钥托管系统，但比明文持久化更安全。
+
+## 9. 前后端通信方式
+
+当前前端与后端的交互以 HTTP 轮询为主。
 
 说明:
 
-- 当前没有 WebSocket 推送，前端使用定时轮询。
-- 取消是协作式取消；如果底层计算仍在执行，需要等当前训练调用返回后才会完成状态落库。
+- 训练监控页没有 WebSocket 推送
+- 长任务状态通过轮询接口刷新
+- 这种方式实现简单，但在高频刷新场景下效率一般
 
-## 后端数据模型
+## 10. 当前实现边界
 
-- `training_jobs`
-  记录任务配置、状态、进度、损失、解、错误和取消标记。
-- `worker_states`
-  记录 worker 在线状态、最近心跳、最近任务和错误信息。
-- `problems`
-  目前保留了问题配置接口，核心训练流主要由 `training_jobs` 驱动。
+当前版本适合本地开发、教学演示和中小规模实验，仍存在以下边界:
 
-## 求解器配置模型
+- 数据库工作台目前聚焦 MySQL，不是完整 SQL IDE
+- 训练数据集已支持导入与存储，但尚未完整打通到所有训练模式
+- 任务取消主要是协作式取消
+- 默认 Celery broker 仍以本地开发为导向
 
-训练入口接受两类配置:
+## 11. 推荐阅读顺序
 
-- 兼容模式
-  `layers + learning_rate + epochs + n_points + n_boundary`
-- 新模式
-  `solver_config.network / solver_config.optimizer / solver_config.pde / solver_config.lambda_boundary / solver_config.collocation_batch_size`
-
-当前内置能力:
-
-- PDE: `laplace_2d`、`poisson_2d`、`heat_1d`、`burgers_1d`
-- Optimizer: `adam`、`sgd`
-- Activation: `tanh`、`relu`、`sigmoid`、`softplus`、`linear`
-- Network block: 每个隐藏层块可独立设置 `size`、`activation`、`residual`
-
-## 扩展点
-
-### 新增 PDE
-
-1. 在 `pinn-core/src/solver/mod.rs` 增加 `PDEKind` 分支和残差公式。
-2. 在 `backend/api/problems.py` 的目录中补充新模板。
-3. 前端配置页会自动消费目录接口，大部分情况下无需新增独立页面逻辑。
-
-### 新增优化器或网络能力
-
-1. 在 `pinn-core/src/nn/mod.rs` 增加优化器或激活函数。
-2. 在目录接口中补充选项。
-3. 前端 builder 会通过接口渲染新的可选项。
-
-### 更换基础设施
-
-- 目前 Celery 使用 filesystem broker，适合本地开发。
-- 若要服务化部署，建议替换为 Redis broker，并保留 SQLite 或升级到 PostgreSQL。
+1. [快速开始](./quickstart.md)
+2. [训练与数据指南](./training-guide.md)
+3. [数据库工作台](./database-workspace.md)
+4. [常见问题](./faq.md)

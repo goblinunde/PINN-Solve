@@ -22,8 +22,12 @@ PINN-Solve 是一个面向物理信息神经网络的全栈求解平台。当前
 
 ## 文档
 
+- 文档导航: [docs/README.md](docs/README.md)
 - 快速上手: [docs/quickstart.md](docs/quickstart.md)
 - 架构说明: [docs/architecture.md](docs/architecture.md)
+- 训练与数据指南: [docs/training-guide.md](docs/training-guide.md)
+- 数据库工作台: [docs/database-workspace.md](docs/database-workspace.md)
+- 常见问题: [docs/faq.md](docs/faq.md)
 - 仓库协作规范: [AGENTS.md](AGENTS.md)
 
 ## 项目结构

@@ -1,6 +1,24 @@
 # PINN-Solve 快速开始
 
-## 1. 依赖准备
+本文档用于帮助你在一台本地开发机上完成首次运行，包括依赖安装、CPU/GPU 依赖选择、服务启动、第一次训练，以及数据库工作台的基本使用。
+
+## 1. 环境要求
+
+建议准备以下环境:
+
+- Rust stable
+- Python 3.10+
+- Node.js 18+
+- MySQL 8.x，若要使用数据库工作台
+
+项目目录结构中的关键部分:
+
+- `pinn-core/`: Rust 求解核心与 PyO3 绑定
+- `backend/`: FastAPI、Celery、数据模型和服务
+- `frontend/`: Vue 3 + Vite 前端
+- `docs/`: 项目文档
+
+## 2. 安装依赖
 
 ### Rust
 
@@ -8,41 +26,54 @@
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
-### Python
+### Python 后端
+
+进入后端目录后，使用项目提供的依赖安装脚本:
 
 ```bash
-pip install uv
 cd backend
-uv venv
-source .venv/bin/activate
-uv pip install -r requirements.txt
+./install-deps.sh auto
 ```
 
-### Node.js
+可选模式:
+
+- `./install-deps.sh auto`
+  自动检查是否存在 `nvidia-smi`
+- `./install-deps.sh cpu`
+  强制安装 CPU 版 PyTorch，适合没有 NVIDIA 显卡的机器
+- `./install-deps.sh gpu`
+  安装 GPU 版 PyTorch，适合有 CUDA 环境的机器
+
+说明:
+
+- 基础依赖包含 `fastapi`、`celery`、`sqlalchemy`、`pymysql`、`sshtunnel` 等
+- 如果只执行 `pip install -r requirements.txt`，当前只会安装基础依赖，不会自动装 PyTorch
+
+### Node.js 前端
 
 ```bash
-nvm install node
+cd frontend
+npm install
 ```
 
-## 2. 启动整套开发环境
+## 3. 构建 Rust 扩展
 
-推荐使用根目录 `Makefile`:
+如果你需要启用 Rust 原生求解器，或启用 Rust 管理数据库密码/密钥，需要先构建扩展:
 
 ```bash
-make help
+cd pinn-core
+PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo build --release
+```
+
+如果你主要依赖 Python/Torch 后端训练，Rust 扩展暂时不可用时系统也能运行，但会走 Python 回退路径。
+
+## 4. 启动开发环境
+
+### 方式 A: 使用 Makefile
+
+```bash
 make up
 make status
-```
-
-常用命令:
-
-```bash
-make rust-build
-make worker-start
-make api-start
-make frontend-start
-make logs
-make down
 ```
 
 默认地址:
@@ -51,19 +82,14 @@ make down
 - Swagger: `http://localhost:8000/docs`
 - Frontend: `http://localhost:38000`
 
-说明:
-
-- `make rust-build` 会构建 Rust 核心，并同步生成 Python 导入所需的 `pinn_core.so`
-- Celery 使用 filesystem broker，任务状态和结果持久化在 `backend/pinn_solve.db`
-
-## 3. 手动启动方式
+### 方式 B: 手动启动
 
 终端 1:
 
 ```bash
 cd backend
 source .venv/bin/activate
-./start-worker.sh
+python -m celery -A tasks.celery_app worker --pool solo --loglevel INFO
 ```
 
 终端 2:
@@ -78,139 +104,123 @@ python main.py
 
 ```bash
 cd frontend
-npm install
 npm run dev
 ```
 
-## 4. 第一次训练
+## 5. 校验环境是否正常
 
-访问前端配置页后，可以直接:
-
-- 选择 PDE 模板: `Laplace 2D`、`Poisson 2D`、`Heat 1D`、`Burgers 1D`
-- 选择优化器: `Adam` 或 `SGD`
-- 设置训练轮数、配点数、边界点数、边界损失权重
-- 使用网络搭建器添加隐藏层块，并为每个块设置宽度、激活函数和残差连接
-
-点击“开始训练”后:
-
-1. 前端调用 `POST /api/train/`
-2. 后端创建持久化任务并投递 Celery
-3. 监控页轮询显示进度和损失
-4. 训练完成后结果页展示 3D 解网格
-
-任务中心还支持:
-
-- 搜索和筛选任务
-- 查看 worker 在线状态
-- 查看队列概览
-- 取消、重试、删除和批量删除任务
-
-## 5. API 示例
-
-### 获取问题目录
+### 检查 API
 
 ```bash
-curl http://localhost:8000/api/problems/catalog
+curl http://localhost:8000/health
 ```
 
-### 创建带 `solver_config` 的训练任务
+如果安装了 PyTorch，返回结果中会包含 `torch_runtime`，例如:
+
+```json
+{
+  "status": "ok",
+  "database_backend": "sqlite",
+  "torch_runtime": {
+    "available": true,
+    "device": "cpu",
+    "cuda_available": false,
+    "requested_device": "cpu"
+  }
+}
+```
+
+### 检查数据库工作台路由
 
 ```bash
-curl -X POST http://localhost:8000/api/train/ \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Heat demo",
-    "epochs": 200,
-    "n_points": 128,
-    "n_boundary": 64,
-    "solver_config": {
-      "network": {
-        "input_dim": 2,
-        "hidden_layers": [
-          { "size": 32, "activation": "tanh", "residual": false },
-          { "size": 32, "activation": "softplus", "residual": true }
-        ],
-        "output_dim": 1,
-        "output_activation": "linear"
-      },
-      "optimizer": "adam",
-      "learning_rate": 0.001,
-      "pde": {
-        "kind": "heat_1d",
-        "source_type": "zero",
-        "alpha": 0.1,
-        "viscosity": 0.01
-      },
-      "epsilon": 0.0001,
-      "lambda_boundary": 10.0,
-      "collocation_batch_size": 64
-    }
-  }'
+curl http://localhost:8000/api/db/profiles
 ```
 
-### 查询任务状态
+正常情况下应返回:
 
-```bash
-curl http://localhost:8000/api/train/<task_id>/status
+```json
+{"items":[]}
 ```
 
-### 查询系统概览
-
-```bash
-curl http://localhost:8000/api/system/overview
-```
-
-### 获取结果
-
-```bash
-curl http://localhost:8000/api/results/<task_id>
-```
-
-## 6. 验证
-
-```bash
-make rust-build
-python -m py_compile $(rg --files backend -g '*.py') test_features.py
-cd frontend && npm run build
-```
-
-## 7. 故障排除
-
-### Rust 模块未生效
-
-如果后端仍然加载旧版 `pinn_core.so`:
-
-```bash
-make rust-build
-```
-
-不要只执行裸 `cargo build --release`，因为 Python 实际导入的动态库需要同步。
-
-### 任务一直停在 queued
-
-通常表示 worker 未启动或没有心跳:
-
-```bash
-make worker-start
-make logs-worker
-```
-
-也可以直接查看 `GET /api/system/overview`。
-
-### 前端依赖或构建异常
+### 检查前端构建
 
 ```bash
 cd frontend
-rm -rf node_modules package-lock.json
-npm install
 npm run build
 ```
 
-### 端口冲突
+## 6. 第一次训练
 
-可以通过 `make` 变量覆写端口:
+前端配置页支持选择:
+
+- PDE 模板: `Laplace 2D`、`Poisson 2D`、`Heat 1D`、`Burgers 1D`
+- 优化器: `Adam`、`SGD`
+- 网络结构: `mlp`、`cnn`、`rnn`、`gru`、`lstm`
+- 每层隐藏块的宽度、激活和残差开关
+
+训练流程:
+
+1. 打开前端配置页
+2. 设置训练轮数、采样点数、边界点数和学习率
+3. 选择 PDE 模板和网络结构
+4. 点击“开始训练”
+5. 在监控页查看进度和损失
+6. 在结果页查看数值结果和图表
+
+说明:
+
+- 若 Rust `pinn_core` 可用，优先走 Rust 原生训练
+- 若 Rust 模块不可用且已安装 PyTorch，则回退到 Python/Torch 训练
+- 若两者都不可用，系统只能生成模拟数据
+
+## 7. 配置 MySQL 持久化
+
+默认后端持久化可以使用 SQLite。若要改成 MySQL，请先创建数据库:
+
+```sql
+CREATE DATABASE PINNSOLVER CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+然后在 `backend/.env` 中配置:
+
+```env
+PINNSOLVER_DB_BACKEND=mysql
+PINNSOLVER_DB_HOST=127.0.0.1
+PINNSOLVER_DB_PORT=3306
+PINNSOLVER_DB_USER=root
+PINNSOLVER_DB_PASSWORD=your_password
+PINNSOLVER_DB_NAME=PINNSOLVER
+PINNSOLVER_TORCH_DEVICE=cpu
+```
+
+配置完成后重启后端。
+
+## 8. 使用数据库工作台
+
+数据库工作台入口位于前端导航栏，可完成:
+
+- 保存 MySQL 连接
+- 测试连接
+- 浏览数据库和表
+- 创建数据库
+- 创建表
+- 插入 JSON 行数据
+- 粘贴 CSV 导入
+- 使用 SSH 隧道连接云端 SQL 服务
+
+如果启用了 `Save password`，后端会尝试通过 Rust 层加密保存数据库口令和 SSH 敏感字段。
+
+## 9. 常用验证命令
 
 ```bash
-make frontend-start FRONTEND_PORT=39000
-make api-start API_PORT=8100
+python -m compileall backend
+cd frontend && npm run build
+cd pinn-core && PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo check
 ```
+
+## 10. 下一步阅读
+
+- [架构说明](./architecture.md)
+- [训练与数据指南](./training-guide.md)
+- [数据库工作台](./database-workspace.md)
+- [常见问题](./faq.md)
